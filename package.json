@@ -1,0 +1,40 @@
+{
+  "name": "slip-budget",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "postinstall": "node scripts/copy-ocr-assets.mjs",
+    "predev": "node scripts/copy-ocr-assets.mjs",
+    "prebuild": "node scripts/copy-ocr-assets.mjs",
+    "dev": "vite",
+    "dev:emu": "node scripts/copy-ocr-assets.mjs && vite --mode emulator",
+    "emulators": "firebase emulators:start --only auth,firestore --project demo-slip-budget",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@tesseract.js-data/eng": "^1.0.0",
+    "@tesseract.js-data/tha": "^1.0.0",
+    "chart.js": "^4.4.7",
+    "firebase": "^11.10.0",
+    "jsqr": "^1.4.0",
+    "react": "^19.1.0",
+    "react-chartjs-2": "^5.3.0",
+    "react-dom": "^19.1.0",
+    "react-router-dom": "^7.6.0",
+    "tesseract.js": "^6.0.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^4.4.1",
+    "firebase-tools": "^15.37.0",
+    "typescript": "~5.8.3",
+    "vite": "^6.4.0",
+    "vite-plugin-pwa": "^1.0.0",
+    "vitest": "^3.2.0"
+  }
+}
