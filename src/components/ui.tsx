@@ -1,6 +1,6 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useData } from '../lib/store';
-import { monthLabel, shiftMonth, money, timeLabel } from '../lib/format';
+import { displayYear, monthKey, monthLabel, monthNamesShort, parseYearInput, shiftMonth, money, timeLabel } from '../lib/format';
 import type { Transaction, TxType } from '../lib/types';
 import { displayName, useI18n } from '../lib/i18n';
 
@@ -28,14 +28,88 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
   );
 }
 
+/** ตัวเลือกเดือน: ลูกศรเลื่อนทีละเดือน · แตะชื่อเดือนเพื่อเปิดป็อปอัพเลือกเดือน/ปี (กรอกปีเองได้) */
 export function MonthPicker({ value, onChange }: { value: string; onChange: (m: string) => void }) {
   const { tt } = useI18n();
+  const [open, setOpen] = useState(false);
   return (
     <div className="monthpicker">
       <button className="btn sm" onClick={() => onChange(shiftMonth(value, -1))} aria-label={tt('เดือนก่อน')}>‹</button>
-      <strong>{monthLabel(value)}</strong>
+      <button className="monthlabel" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-label={tt('เลือกเดือนและปี')}>
+        {monthLabel(value)} <span aria-hidden="true">▾</span>
+      </button>
       <button className="btn sm" onClick={() => onChange(shiftMonth(value, 1))} aria-label={tt('เดือนถัดไป')}>›</button>
+      {open && (
+        <MonthYearSheet
+          value={value}
+          onPick={(m) => {
+            onChange(m);
+            setOpen(false);
+          }}
+          onClose={() => setOpen(false)}
+        />
+      )}
     </div>
+  );
+}
+
+function MonthYearSheet({ value, onPick, onClose }: { value: string; onPick: (m: string) => void; onClose: () => void }) {
+  const { tt } = useI18n();
+  const [selY, selM] = value.split('-').map(Number);
+  const [year, setYear] = useState(selY);
+  const [text, setText] = useState(String(displayYear(selY)));
+  const [now] = useState(() => monthKey(new Date()));
+  const [nowY, nowM] = now.split('-').map(Number);
+  const names = monthNamesShort();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const setYearBoth = (y: number) => {
+    setYear(y);
+    setText(String(displayYear(y)));
+  };
+  const onText = (raw: string) => {
+    const digits = raw.replace(/\D/g, '').slice(0, 4);
+    setText(digits);
+    const y = parseYearInput(digits);
+    if (y) setYear(y); // พิมพ์ครบ 4 หลักถึงจะเปลี่ยนปี
+  };
+  const valid = parseYearInput(text) !== null;
+
+  return (
+    <Sheet title={tt('เลือกเดือนและปี')} onClose={onClose}>
+      <div className="stack">
+        <div className="row" style={{ justifyContent: 'center', gap: 8 }}>
+          <button type="button" className="btn" onClick={() => setYearBoth(Math.max(1900, year - 1))} aria-label={tt('ปีก่อน')}>‹</button>
+          <input
+            ref={inputRef}
+            className="input yearinput"
+            inputMode="numeric"
+            value={text}
+            aria-label={tt('ปี')}
+            aria-invalid={!valid}
+            onChange={(e) => onText(e.target.value)}
+            onFocus={(e) => e.target.select()}
+            onKeyDown={(e) => e.key === 'Enter' && valid && onPick(`${year}-${String(selM).padStart(2, '0')}`)}
+          />
+          <button type="button" className="btn" onClick={() => setYearBoth(Math.min(2200, year + 1))} aria-label={tt('ปีถัดไป')}>›</button>
+        </div>
+        {!valid && <div className="small danger-text" style={{ textAlign: 'center' }}>{tt('กรอกปี 4 หลัก')}</div>}
+        <div className="monthgrid" role="group" aria-label={tt('เลือกเดือน')}>
+          {names.map((n, i) => (
+            <button
+              type="button"
+              key={n}
+              disabled={!valid}
+              className={`monthcell${year === selY && i + 1 === selM ? ' on' : ''}${year === nowY && i + 1 === nowM ? ' now' : ''}`}
+              onClick={() => onPick(`${year}-${String(i + 1).padStart(2, '0')}`)}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+        <button type="button" className="btn block" onClick={() => onPick(now)}>{tt('ไปที่เดือนนี้')}</button>
+      </div>
+    </Sheet>
   );
 }
 
@@ -106,7 +180,8 @@ export function TxRow({
   onClick,
   selectable,
   selected,
-  onToggle
+  onToggle,
+  onLongPress
 }: {
   t: Transaction;
   onClick?: () => void;
@@ -114,8 +189,21 @@ export function TxRow({
   selectable?: boolean;
   selected?: boolean;
   onToggle?: () => void;
+  /** กดค้าง ~0.5 วินาทีที่แถว (ใช้เข้าโหมดเลือกหลายรายการ) */
+  onLongPress?: () => void;
 }) {
   const { tt } = useI18n();
+  const pressTimer = useRef(0);
+  const pressFired = useRef(false);
+  const startPress = () => {
+    if (!onLongPress) return;
+    pressFired.current = false;
+    pressTimer.current = window.setTimeout(() => {
+      pressFired.current = true;
+      onLongPress();
+    }, 500);
+  };
+  const endPress = () => clearTimeout(pressTimer.current);
   const { categoryById, accountById } = useData();
   const c = t.categoryId ? categoryById.get(t.categoryId) : undefined;
   const acc = t.accountId ? accountById.get(t.accountId) : undefined;
@@ -147,7 +235,21 @@ export function TxRow({
     );
   }
   return (
-    <button className="tx" onClick={onClick}>
+    <button
+      className="tx"
+      onClick={() => {
+        if (pressFired.current) {
+          pressFired.current = false; // คลิกที่ตามหลังการกดค้าง ไม่ต้องเปิดฟอร์มแก้ไข
+          return;
+        }
+        onClick?.();
+      }}
+      onPointerDown={startPress}
+      onPointerUp={endPress}
+      onPointerLeave={endPress}
+      onPointerCancel={endPress}
+      onContextMenu={onLongPress ? (e) => e.preventDefault() : undefined}
+    >
       {body}
     </button>
   );

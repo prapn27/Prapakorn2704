@@ -15,6 +15,13 @@ import { tr } from './i18n';
  * ทุกการเขียนจะใส่ลง outbox ในธุรกรรมเดียวกัน แล้ว sync engine ส่งขึ้น Cloudflare D1 และดึงสิ่งที่เปลี่ยนจากเครื่องอื่น
  */
 
+/** ข้อความแจ้งสั้น ๆ ที่มุมล่างจอ (เช่น "ลบแล้ว" พร้อมปุ่มเลิกทำ) */
+export interface Toast {
+  id: number;
+  message: string;
+  undo?: () => void;
+}
+
 interface DataState {
   user: User | null;
   authReady: boolean;
@@ -28,6 +35,7 @@ interface DataState {
   syncError: string | null;
   /** ข้อความแจ้งผู้ใช้จากการ sync เช่น สลิปซ้ำจากอีกเครื่อง */
   notice: string | null;
+  toast: Toast | null;
   accounts: Account[];
   groups: CategoryGroup[];
   categories: Category[];
@@ -54,6 +62,7 @@ interface DataApi extends DataState {
   bulkSetCategory(updates: { id: string; categoryId: string; type: Transaction['type'] }[]): void;
   retrySync(): void;
   dismissNotice(): void;
+  dismissToast(): void;
   /** ซิงก์ก่อนออก — ถ้ายังมีของค้างส่งจะถามยืนยัน แล้วลบข้อมูลในเครื่องของผู้ใช้นี้ */
   signOut(): Promise<void>;
 }
@@ -100,6 +109,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
+  const toastSeq = useRef(0);
+  const showToast = useCallback((message: string, undo?: () => void, ttl = 8000) => {
+    const id = ++toastSeq.current;
+    setToast({ id, message, undo });
+    window.setTimeout(() => setToast((t) => (t && t.id === id ? null : t)), ttl);
+  }, []);
 
   // ---------- auth ----------
   useEffect(() => {
@@ -247,6 +263,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
     };
     const nextOrder = (items: { order: number }[]) => items.reduce((m, i) => Math.max(m, i.order ?? 0), 0) + 1;
 
+    /** กู้คืนรายการที่ลบ: เขียนกลับด้วยข้อมูลเดิมและเวลาแก้ที่ใหม่กว่า (server จึงทำให้กลับมาจาก tombstone) */
+    const restore = (rows: Transaction[]) => {
+      w(async () => rows.map((r) => upsert('transactions', { ...r, updatedAt: Date.now() })));
+      showToast(tr('กู้คืน {n} รายการแล้ว', { n: rows.length }), undefined, 3000);
+    };
+    const del = (ids: string[]) => {
+      const d = dbRef.current;
+      if (!d || !ids.length) return;
+      (async () => {
+        const rows = (await d.transactions.bulkGet(ids)).filter((r): r is Transaction => Boolean(r));
+        if (!rows.length) return;
+        await writeOps(d, rows.map((r) => remove('transactions', r.id)));
+        showToast(tr('ลบ {n} รายการแล้ว', { n: rows.length }), () => restore(rows));
+        scheduleSync();
+      })().catch(fail);
+    };
+
     return {
       user,
       authReady,
@@ -256,6 +289,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       syncing,
       syncError,
       notice,
+      toast,
       accounts,
       groups,
       categories,
@@ -283,10 +317,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         });
       },
       deleteTransaction(id) {
-        w(async () => [remove('transactions', id)]);
+        del([id]);
       },
       deleteTransactions(ids) {
-        w(async () => ids.map((id) => remove('transactions', id)));
+        del(ids);
       },
 
       saveAccount(a) {
@@ -371,6 +405,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       dismissNotice() {
         setNotice(null);
       },
+      dismissToast() {
+        setToast(null);
+      },
       async signOut() {
         const d = dbRef.current;
         const u = userRef.current;
@@ -385,7 +422,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         await fbSignOut(getAuthInstance());
       }
     };
-  }, [user, authReady, loaded, online, pendingCount, syncing, syncError, notice, accounts, groups, categories, transactions, scheduleSync, runSync]);
+  }, [user, authReady, loaded, online, pendingCount, syncing, syncError, notice, toast, accounts, groups, categories, transactions, scheduleSync, runSync, showToast]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

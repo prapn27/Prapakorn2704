@@ -92,7 +92,7 @@ export default function Settings() {
           {tt('ออกจากระบบ')}
         </button>
       </div>
-      <div className="small muted" style={{ textAlign: 'center' }}>{tt('สลิปบัญชี v0.1')}</div>
+      <div className="small muted" style={{ textAlign: 'center' }}>{tt('สลิปบัญชี')} v0.1 · {__APP_BUILD__}</div>
     </div>
   );
 }

@@ -57,6 +57,28 @@ export function monthLabelShort(key: string): string {
   return getLang() === 'en' ? `${EN_MONTHS_SHORT[m - 1]} ${String(y).slice(2)}` : `${THAI_MONTHS_SHORT[m - 1]} ${String(y + 543).slice(2)}`;
 }
 
+/** ชื่อเดือนแบบย่อตามภาษา (index 0 = มกราคม) */
+export function monthNamesShort(): string[] {
+  return getLang() === 'en' ? EN_MONTHS_SHORT : THAI_MONTHS_SHORT;
+}
+
+/** ปีที่แสดงให้ผู้ใช้เห็น: ไทย = พ.ศ. · อังกฤษ = ค.ศ. */
+export function displayYear(year: number): number {
+  return getLang() === 'en' ? year : year + 543;
+}
+
+/**
+ * แปลงปีที่ผู้ใช้พิมพ์เป็น ค.ศ. — คืน null ถ้ายังพิมพ์ไม่ครบ 4 หลักหรือไม่สมเหตุสมผล
+ * ค่า ≥ 2400 ถือเป็น พ.ศ. เสมอ (ไม่ว่าอยู่ภาษาไหน) ส่วนค่าที่น้อยกว่านั้นถือเป็น ค.ศ.
+ */
+export function parseYearInput(s: string): number | null {
+  const t = s.trim();
+  if (!/^\d{4}$/.test(t)) return null;
+  const n = Number(t);
+  const y = n >= 2400 ? n - 543 : n;
+  return y >= 1900 && y <= 2200 ? y : null;
+}
+
 export function dateLabel(date: string): string {
   const [y, m, d] = date.slice(0, 10).split('-').map(Number);
   return getLang() === 'en' ? `${EN_MONTHS_SHORT[m - 1]} ${d}, ${y}` : `${d} ${THAI_MONTHS_SHORT[m - 1]} ${y + 543}`;

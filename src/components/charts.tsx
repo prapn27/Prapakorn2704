@@ -102,7 +102,8 @@ export function IncomeExpenseBars({
           },
           scales: {
             x: { grid: { display: false }, ticks: { color: text } },
-            y: { grid: { color: grid }, ticks: { color: text, callback: (v) => moneyShort(Number(v)) } }
+            y: { grid: { color: grid }, // precision: 0 → ขีดแกนเป็นจำนวนเต็มเสมอ (ไม่งั้นยอดน้อย ๆ จะได้ขีด 0.5, 1 ที่ปัดเป็น 1, 1, 1, 0, 0, 0 ซ้ำกัน)
+            ticks: { color: text, precision: 0, callback: (v) => moneyShort(Number(v)) } }
           }
         }}
       />

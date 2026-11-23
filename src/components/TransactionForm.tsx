@@ -44,8 +44,8 @@ export function TransactionForm({ tx, onClose }: { tx?: Transaction; onClose: ()
   };
 
   const remove = () => {
-    if (tx && confirm(tt('ลบรายการนี้?'))) {
-      data.deleteTransaction(tx.id);
+    if (tx) {
+      data.deleteTransaction(tx.id); // ไม่ถามยืนยัน — มีปุ่มเลิกทำแสดงที่มุมล่างจอแทน
       onClose();
     }
   };

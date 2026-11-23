@@ -35,7 +35,7 @@ const NAV = [
 
 function Shell() {
   const { tt } = useI18n();
-  const { user, authReady, loaded, online, syncing, syncError, retrySync, notice, dismissNotice } = useData();
+  const { user, authReady, loaded, online, syncing, syncError, retrySync, notice, dismissNotice, toast, dismissToast } = useData();
   const loc = useLocation();
   const [adding, setAdding] = useState(false);
 
@@ -96,6 +96,17 @@ function Shell() {
       )}
       {loaded && !sub && loc.pathname !== '/import' && (
         <button className="fab" onClick={() => setAdding(true)} aria-label={tt('เพิ่มรายการ')}>+</button>
+      )}
+      {toast && (
+        <div className="toast" role="status" key={toast.id}>
+          <span className="msg">{toast.message}</span>
+          {toast.undo && (
+            <button className="undo" onClick={() => toast.undo?.()}>
+              {tt('เลิกทำ')}
+            </button>
+          )}
+          <button className="x" onClick={dismissToast} aria-label={tt('ปิดข้อความ')}>✕</button>
+        </div>
       )}
       <nav className="bottomnav">
         <div className="inner">

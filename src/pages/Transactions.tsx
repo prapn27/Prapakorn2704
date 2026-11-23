@@ -107,15 +107,24 @@ export default function Transactions() {
 
   return (
     <div className="page" style={selecting ? { paddingBottom: 84 } : undefined}>
-      {month ? (
-        <MonthPicker value={month} onChange={setMonth} />
-      ) : (
-        <div className="row">
-          <strong>{tt('ทุกเดือน')}</strong>
-          <span className="spacer" />
-          <button className="btn sm" onClick={() => setMonth(monthKey(new Date()))}>{tt('เลือกเดือน')}</button>
+      <div className="pagebar">
+        <div className="grow">
+          {month ? (
+            <MonthPicker value={month} onChange={setMonth} />
+          ) : (
+            <div className="row">
+              <strong>{tt('ทุกเดือน')}</strong>
+              <span className="spacer" />
+              <button className="btn sm" onClick={() => setMonth(monthKey(new Date()))}>{tt('เลือกเดือน')}</button>
+            </div>
+          )}
         </div>
-      )}
+        {list.length > 0 && !selecting && (
+          <button className="btn sm" onClick={() => setSelecting(true)} title={tt('เลือกหลายรายการเพื่อลบ (กดค้างที่รายการก็ได้)')}>
+            {tt('☑ เลือก')}
+          </button>
+        )}
+      </div>
       <div className="card stack">
         <input className="input" placeholder={tt('🔍 ค้นหา note / หมวด / ยอด')} value={q} onChange={(e) => setQ(e.target.value)} />
         <div className="grid2">
@@ -150,8 +159,7 @@ export default function Transactions() {
           <span className="income">+{money(sum.income)}</span>
           <span className="expense">−{money(sum.expense)}</span>
         </div>
-        {list.length > 0 &&
-          (selecting ? (
+        {list.length > 0 && selecting && (
             <div className="row">
               <label className="row" style={{ gap: 8, cursor: 'pointer' }}>
                 <input
@@ -166,9 +174,7 @@ export default function Transactions() {
               <span className="spacer" />
               <button className="btn sm" onClick={exitSelect}>{tt('ยกเลิก')}</button>
             </div>
-          ) : (
-            <button className="btn sm" onClick={() => setSelecting(true)}>{tt('☑ เลือกหลายรายการเพื่อลบ')}</button>
-          ))}
+        )}
         {cat === 'none' && list.length > 0 && (
           <button className="btn sm" onClick={reapply}>{tt('⚡ จัดหมวดใหม่ตามกฎ keyword')}</button>
         )}
@@ -206,6 +212,10 @@ export default function Transactions() {
                     selectable={selecting}
                     selected={selected.has(t.id)}
                     onToggle={() => toggle(t.id)}
+                    onLongPress={() => {
+                      setSelecting(true);
+                      setSelected(new Set([t.id]));
+                    }}
                   />
                 ))}
               </div>

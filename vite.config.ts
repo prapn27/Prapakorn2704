@@ -7,6 +7,10 @@ const base = process.env.BASE_PATH || '/';
 
 export default defineConfig({
   base,
+  define: {
+    // แสดงในหน้าตั้งค่า เพื่อเช็กว่าเครื่องใช้เวอร์ชันล่าสุดหรือยัง (CI ส่ง GITHUB_SHA มาให้)
+    __APP_BUILD__: JSON.stringify((process.env.GITHUB_SHA ?? 'dev').slice(0, 7))
+  },
   plugins: [
     react(),
     VitePWA({

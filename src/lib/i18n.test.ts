@@ -3,7 +3,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { DEFAULT_ACCOUNTS, DEFAULT_GROUPS } from '../../shared/defaults';
 import { EN } from './en';
-import { dateLabel, money, monthLabel, monthLabelShort } from './format';
+import { dateLabel, displayYear, money, monthLabel, monthLabelShort, monthNamesShort, parseYearInput } from './format';
 import { __setLangForTest, displayName, tr } from './i18n';
 import { SEED_NAMES_EN } from './seedNames';
 import { BANK_NAMES } from './slipParser';
@@ -142,5 +142,28 @@ describe('รูปแบบวันที่และตัวเลขตา�
     expect(monthLabelShort('2026-11')).toBe('Nov 26');
     expect(dateLabel('2026-11-23T11:15')).toBe('Nov 23, 2026');
     expect(money(1234.5)).toBe('1,234.50');
+  });
+});
+
+describe('ตัวช่วยเลือกเดือน/ปี', () => {
+  it('ปีที่แสดงตามภาษา: ไทย พ.ศ. / อังกฤษ ค.ศ.', () => {
+    expect(displayYear(2026)).toBe(2569);
+    __setLangForTest('en');
+    expect(displayYear(2026)).toBe(2026);
+  });
+
+  it('ชื่อเดือนแบบย่อ 12 เดือนตามภาษา', () => {
+    expect(monthNamesShort()).toHaveLength(12);
+    expect(monthNamesShort()[10]).toBe('พ.ย.');
+    __setLangForTest('en');
+    expect(monthNamesShort()[10]).toBe('Nov');
+  });
+
+  it('parseYearInput: รับ พ.ศ./ค.ศ. 4 หลัก และปฏิเสธค่าที่ยังไม่ครบหรือไม่สมเหตุสมผล', () => {
+    expect(parseYearInput('2569')).toBe(2026); // ≥ 2400 = พ.ศ.
+    expect(parseYearInput('2026')).toBe(2026); // น้อยกว่า = ค.ศ.
+    expect(parseYearInput(' 2568 ')).toBe(2025);
+    expect(parseYearInput('2200')).toBe(2200); // ขอบบน ค.ศ.
+    for (const bad of ['', '2', '202', '20266', 'abcd', '1899', '2201', '2399', '2800', '2026a']) expect(parseYearInput(bad), bad).toBeNull();
   });
 });
