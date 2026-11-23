@@ -10,14 +10,16 @@ import {
 import { Doughnut, Bar } from 'react-chartjs-2';
 import { money, moneyShort } from '../lib/format';
 import type { Slice } from '../lib/stats';
+import { tr, useI18n } from '../lib/i18n';
 
 ChartJS.register(ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend);
 
 const css = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
 export function DonutWithLegend({ slices, onPick }: { slices: Slice[]; onPick?: (s: Slice) => void }) {
+  const { tt } = useI18n();
   const total = slices.reduce((s, x) => s + x.value, 0);
-  if (!total) return <div className="empty">ยังไม่มีข้อมูล</div>;
+  if (!total) return <div className="empty">{tt('ยังไม่มีข้อมูล')}</div>;
   return (
     <>
       <div className="chart-box">
@@ -38,7 +40,7 @@ export function DonutWithLegend({ slices, onPick }: { slices: Slice[]; onPick?: 
             cutout: '62%',
             plugins: {
               legend: { display: false },
-              tooltip: { callbacks: { label: (c) => ` ${c.label}: ${money(c.parsed)} บาท` } }
+              tooltip: { callbacks: { label: (c) => ` ${c.label}: ${money(c.parsed)} ${tr('บาท')}` } }
             },
             onClick: (_e, els) => {
               if (els[0] && onPick) onPick(slices[els[0].index]);
@@ -79,6 +81,7 @@ export function IncomeExpenseBars({
   income: number[];
   expense: number[];
 }) {
+  const { tt } = useI18n();
   const grid = css('--border');
   const text = css('--muted');
   return (
@@ -87,15 +90,15 @@ export function IncomeExpenseBars({
         data={{
           labels,
           datasets: [
-            { label: 'รายรับ', data: income, backgroundColor: css('--income'), borderRadius: 4 },
-            { label: 'รายจ่าย', data: expense, backgroundColor: css('--expense'), borderRadius: 4 }
+            { label: tt('รายรับ'), data: income, backgroundColor: css('--income'), borderRadius: 4 },
+            { label: tt('รายจ่าย'), data: expense, backgroundColor: css('--expense'), borderRadius: 4 }
           ]
         }}
         options={{
           maintainAspectRatio: false,
           plugins: {
             legend: { labels: { color: text, boxWidth: 12 } },
-            tooltip: { callbacks: { label: (c) => ` ${c.dataset.label}: ${money(c.parsed.y ?? 0)} บาท` } }
+            tooltip: { callbacks: { label: (c) => ` ${c.dataset.label}: ${money(c.parsed.y ?? 0)} ${tr('บาท')}` } }
           },
           scales: {
             x: { grid: { display: false }, ticks: { color: text } },

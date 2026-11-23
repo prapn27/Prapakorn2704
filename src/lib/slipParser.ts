@@ -51,6 +51,9 @@ const BANK_PATTERNS: [RegExp, string][] = [
   [/baac|ธ\.?ก\.?ส/i, 'ธ.ก.ส.']
 ];
 
+/** ชื่อธนาคารทั้งหมดที่ตัวอ่านสลิปอาจคืนค่า (ใช้ตรวจว่ามีชื่อภาษาอังกฤษครบ) */
+export const BANK_NAMES: string[] = [...new Set([...Object.values(BANK_CODES), ...BANK_PATTERNS.map(([, n]) => n)])];
+
 const MONTHS: Record<string, number> = {};
 [
   ['มค', 'มกราคม', 'jan', 'january'],

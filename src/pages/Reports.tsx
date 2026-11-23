@@ -5,8 +5,10 @@ import { byCategory, byGroup, inMonth, totals, type Slice } from '../lib/stats';
 import { MonthPicker } from '../components/ui';
 import { DonutWithLegend, IncomeExpenseBars } from '../components/charts';
 import type { TxType } from '../lib/types';
+import { useI18n } from '../lib/i18n';
 
 export default function Reports() {
+  const { tt } = useI18n();
   const { transactions, categoryById, groupById } = useData();
   const [month, setMonth] = useState(monthKey(new Date()));
   const [type, setType] = useState<TxType>('expense');
@@ -37,27 +39,27 @@ export default function Reports() {
     <div className="page">
       <MonthPicker value={month} onChange={(m) => { setMonth(m); setDrill(null); }} />
       <div className="card">
-        <h2>6 เดือนล่าสุด</h2>
+        <h2>{tt('6 เดือนล่าสุด')}</h2>
         <IncomeExpenseBars
           labels={months.map(monthLabelShort)}
           income={series.map((s) => s.income)}
           expense={series.map((s) => s.expense)}
         />
-        <div className="small muted" style={{ marginTop: 8 }}>รายจ่ายเฉลี่ย {money(avgExpense)} บาท/เดือน</div>
+        <div className="small muted" style={{ marginTop: 8 }}>{tt('รายจ่ายเฉลี่ย {amount} บาท/เดือน', { amount: money(avgExpense) })}</div>
       </div>
       <div className="card stack">
         <div className="seg">
-          <button className={type === 'expense' ? 'on expense' : ''} onClick={() => { setType('expense'); setDrill(null); }}>รายจ่าย</button>
-          <button className={type === 'income' ? 'on income' : ''} onClick={() => { setType('income'); setDrill(null); }}>รายรับ</button>
+          <button className={type === 'expense' ? 'on expense' : ''} onClick={() => { setType('expense'); setDrill(null); }}>{tt('รายจ่าย')}</button>
+          <button className={type === 'income' ? 'on income' : ''} onClick={() => { setType('income'); setDrill(null); }}>{tt('รายรับ')}</button>
         </div>
         {!drill ? (
           <div className="seg">
-            <button className={view === 'group' ? 'on' : ''} onClick={() => setView('group')}>ตามกลุ่ม</button>
-            <button className={view === 'category' ? 'on' : ''} onClick={() => setView('category')}>ตามหมวด</button>
+            <button className={view === 'group' ? 'on' : ''} onClick={() => setView('group')}>{tt('ตามกลุ่ม')}</button>
+            <button className={view === 'category' ? 'on' : ''} onClick={() => setView('category')}>{tt('ตามหมวด')}</button>
           </div>
         ) : (
           <div className="row">
-            <button className="btn sm" onClick={() => setDrill(null)}>‹ กลับ</button>
+            <button className="btn sm" onClick={() => setDrill(null)}>{tt('‹ กลับ')}</button>
             <strong>{drill.name}</strong>
             <span className="spacer" />
             <span>{money(drill.value)}</span>
@@ -67,7 +69,7 @@ export default function Reports() {
           slices={slices}
           onPick={!drill && view === 'group' ? (s) => setDrill(s) : undefined}
         />
-        {!drill && view === 'group' && slices.length > 0 && <div className="small muted">แตะกลุ่มเพื่อดูหมวดย่อย</div>}
+        {!drill && view === 'group' && slices.length > 0 && <div className="small muted">{tt('แตะกลุ่มเพื่อดูหมวดย่อย')}</div>}
       </div>
     </div>
   );

@@ -1,5 +1,13 @@
-const moneyFmt = new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const moneyShortFmt = new Intl.NumberFormat('th-TH', { maximumFractionDigits: 0 });
+import { getLang } from './i18n';
+
+const fmt = {
+  th: new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+  en: new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+};
+const fmtShort = {
+  th: new Intl.NumberFormat('th-TH', { maximumFractionDigits: 0 }),
+  en: new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
+};
 
 export const THAI_MONTHS = [
   'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
@@ -8,12 +16,17 @@ export const THAI_MONTHS = [
 export const THAI_MONTHS_SHORT = [
   'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
 ];
+export const EN_MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+export const EN_MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export function money(n: number): string {
-  return moneyFmt.format(n);
+  return fmt[getLang()].format(n);
 }
 export function moneyShort(n: number): string {
-  return moneyShortFmt.format(n);
+  return fmtShort[getLang()].format(n);
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -34,18 +47,19 @@ export function shiftMonth(key: string, delta: number): string {
   return monthKey(d);
 }
 
+// ภาษาไทยใช้ปี พ.ศ. · ภาษาอังกฤษใช้ ค.ศ.
 export function monthLabel(key: string): string {
   const [y, m] = key.split('-').map(Number);
-  return `${THAI_MONTHS[m - 1]} ${y + 543}`;
+  return getLang() === 'en' ? `${EN_MONTHS[m - 1]} ${y}` : `${THAI_MONTHS[m - 1]} ${y + 543}`;
 }
 export function monthLabelShort(key: string): string {
   const [y, m] = key.split('-').map(Number);
-  return `${THAI_MONTHS_SHORT[m - 1]} ${String(y + 543).slice(2)}`;
+  return getLang() === 'en' ? `${EN_MONTHS_SHORT[m - 1]} ${String(y).slice(2)}` : `${THAI_MONTHS_SHORT[m - 1]} ${String(y + 543).slice(2)}`;
 }
 
 export function dateLabel(date: string): string {
   const [y, m, d] = date.slice(0, 10).split('-').map(Number);
-  return `${d} ${THAI_MONTHS_SHORT[m - 1]} ${y + 543}`;
+  return getLang() === 'en' ? `${EN_MONTHS_SHORT[m - 1]} ${d}, ${y}` : `${d} ${THAI_MONTHS_SHORT[m - 1]} ${y + 543}`;
 }
 
 export function timeLabel(date: string): string {

@@ -1,5 +1,7 @@
 import { MAX_MUTATIONS, TABLE_NAMES, type SyncRequest, type SyncResponse, type TableName, type WireRow } from '../../shared/schema';
 import type { OutboxItem, SlipDB } from './localdb';
+import { tr } from './i18n';
+import { money } from './format';
 
 export type PostFn = (req: SyncRequest) => Promise<SyncResponse>;
 
@@ -40,9 +42,13 @@ async function applyResponse(db: SlipDB, batch: OutboxItem[], res: SyncResponse,
       if (r.reason === 'duplicate_slip') {
         const tx = await db.transactions.get(r.id);
         await db.transactions.delete(r.id);
-        notices.push(`สลิปนี้ถูกนำเข้าจากอีกเครื่องแล้ว จึงลบรายการซ้ำออก${tx ? ` (${tx.amount.toLocaleString('th-TH')} บาท)` : ''}`);
+        notices.push(
+          tx
+            ? tr('สลิปนี้ถูกนำเข้าจากอีกเครื่องแล้ว จึงลบรายการซ้ำออก ({amount} บาท)', { amount: money(tx.amount) })
+            : tr('สลิปนี้ถูกนำเข้าจากอีกเครื่องแล้ว จึงลบรายการซ้ำออก')
+        );
       } else {
-        notices.push('มีรายการที่ server ไม่รับเพราะข้อมูลไม่ถูกต้อง จึงไม่ถูกซิงก์');
+        notices.push(tr('มีรายการที่ server ไม่รับเพราะข้อมูลไม่ถูกต้อง จึงไม่ถูกซิงก์'));
       }
       // mutation อื่นที่ค้างของแถวเดียวกันไม่มีความหมายแล้ว
       await db.outbox.where('id').equals(r.id).filter((o) => o.table === r.table).delete();
@@ -95,13 +101,13 @@ export async function syncUntilDone(db: SlipDB, post: PostFn): Promise<SyncResul
 
     const res = await post({ since, ...(reload ? { reload } : {}), mutations: batch.map(toWire) });
     if (batch.length > 0 && res.applied.length + res.rejected.length === 0) {
-      throw new Error('server ไม่รับ mutation ใดเลย');
+      throw new Error(tr('server ไม่รับรายการที่ส่งไปเลย'));
     }
     await applyResponse(db, batch, res, notices);
 
     if (!res.more && (await db.outbox.count()) === 0) return { rounds: round, notices };
   }
-  throw new Error('sync วนเกินจำนวนรอบที่กำหนด');
+  throw new Error(tr('ซิงก์วนเกินจำนวนรอบที่กำหนด'));
 }
 
 export type { TableName };

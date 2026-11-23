@@ -230,3 +230,19 @@ a { color: var(--primary); }
 .chart-box { position: relative; height: 220px; }
 code, pre { background: var(--surface-2); border-radius: 6px; padding: 1px 5px; font-size: 13px; }
 pre { padding: 10px; overflow-x: auto; white-space: pre-wrap; }
+
+/* เลือกหลายรายการเพื่อลบ */
+.tx.selectable input[type='checkbox'] { width: 20px; height: 20px; flex: none; accent-color: var(--primary); }
+.tx.selected { background: var(--primary-soft); border-radius: 10px; }
+.list-date input[type='checkbox'] { accent-color: var(--primary); }
+.selbar {
+  position: fixed; left: 0; right: 0; z-index: 30; margin: 0 auto; max-width: 720px;
+  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom));
+  display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+  background: var(--surface); border-top: 1px solid var(--border); box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+}
+.langbar { display: flex; justify-content: flex-end; padding: 12px 16px 0; max-width: 720px; margin: 0 auto; }
+.langbar .seg { width: 180px; }
+input[type='checkbox'] { accent-color: var(--primary); }
+/* โหมดเลือกหลายรายการ: ซ่อนปุ่ม + ไม่ให้โผล่เหนือแถบด้านล่าง */
+body:has(.selbar) .fab { display: none; }

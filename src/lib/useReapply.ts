@@ -1,5 +1,6 @@
 import { useData } from './store';
 import { matchCategory } from './categorize';
+import { tr } from './i18n';
 
 /** จัดหมวดรายการที่ "ยังไม่จัดหมวด" ใหม่ตามกฎ keyword ปัจจุบัน */
 export function useReapplyRules() {
@@ -14,6 +15,6 @@ export function useReapplyRules() {
       .filter((u): u is NonNullable<typeof u> => Boolean(u));
     const left = transactions.filter((t) => !t.categoryId).length - updates.length;
     if (updates.length) bulkSetCategory(updates);
-    alert(`จัดหมวดให้ ${updates.length} รายการ${left > 0 ? ` · เหลือ ${left} รายการที่ไม่ตรงกฎไหนเลย` : ''}`);
+    alert(tr('จัดหมวดให้ {n} รายการ', { n: updates.length }) + (left > 0 ? tr(' · เหลือ {left} รายการที่ไม่ตรงกฎไหนเลย', { left }) : ''));
   };
 }

@@ -1,4 +1,5 @@
 import type { Account, Category, CategoryGroup, Transaction } from './types';
+import { displayName, tr } from './i18n';
 
 export function inMonth(t: Transaction, month: string) {
   return t.date.startsWith(month);
@@ -34,7 +35,7 @@ export function byGroup(
     const c = t.categoryId ? categoryById.get(t.categoryId) : undefined;
     const g = c ? groupById.get(c.groupId) : undefined;
     const id = g?.id ?? '_none';
-    const s = map.get(id) ?? { id, name: g?.name ?? 'ยังไม่จัดหมวด', color: g?.color ?? '#9aa39e', value: 0 };
+    const s = map.get(id) ?? { id, name: g ? displayName(g.name) : tr('ยังไม่จัดหมวด'), color: g?.color ?? '#9aa39e', value: 0 };
     s.value += t.amount;
     map.set(id, s);
   }
@@ -54,7 +55,7 @@ export function byCategory(
     const id = c?.id ?? '_none';
     const s = map.get(id) ?? {
       id,
-      name: c?.name ?? 'ยังไม่จัดหมวด',
+      name: c ? displayName(c.name) : tr('ยังไม่จัดหมวด'),
       icon: c?.icon ?? '❔',
       color: (c && groupById.get(c.groupId)?.color) || '#9aa39e',
       value: 0

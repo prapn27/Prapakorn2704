@@ -4,8 +4,10 @@ import { matchCategory } from '../lib/categorize';
 import { parseAmount, toLocalDateTime } from '../lib/format';
 import type { Transaction, TxType } from '../lib/types';
 import { AccountSelect, CategorySelect, Sheet, TypeToggle } from './ui';
+import { useI18n } from '../lib/i18n';
 
 export function TransactionForm({ tx, onClose }: { tx?: Transaction; onClose: () => void }) {
+  const { tt } = useI18n();
   const data = useData();
   const [type, setType] = useState<TxType>(tx?.type ?? 'expense');
   const [amount, setAmount] = useState(tx ? String(tx.amount) : '');
@@ -42,18 +44,18 @@ export function TransactionForm({ tx, onClose }: { tx?: Transaction; onClose: ()
   };
 
   const remove = () => {
-    if (tx && confirm('ลบรายการนี้?')) {
+    if (tx && confirm(tt('ลบรายการนี้?'))) {
       data.deleteTransaction(tx.id);
       onClose();
     }
   };
 
   return (
-    <Sheet title={tx ? 'แก้ไขรายการ' : 'เพิ่มรายการ'} onClose={onClose}>
+    <Sheet title={tx ? tt('แก้ไขรายการ') : tt('เพิ่มรายการ')} onClose={onClose}>
       <form className="stack" onSubmit={submit}>
         <TypeToggle value={type} onChange={onType} />
         <label className="field">
-          <span>จำนวนเงิน (บาท)</span>
+          <span>{tt('จำนวนเงิน (บาท)')}</span>
           <input
             className="input amount"
             inputMode="decimal"
@@ -64,12 +66,12 @@ export function TransactionForm({ tx, onClose }: { tx?: Transaction; onClose: ()
           />
         </label>
         <label className="field">
-          <span>note / รายละเอียด</span>
-          <input className="input" value={note} placeholder="เช่น ค่าข้าว, grab" onChange={(e) => onNote(e.target.value)} />
+          <span>{tt('note / รายละเอียด')}</span>
+          <input className="input" value={note} placeholder={tt('เช่น ค่าข้าว, grab')} onChange={(e) => onNote(e.target.value)} />
         </label>
         <label className="field">
           <span>
-            หมวดหมู่ {!manualCat && categoryId && <span className="badge ok">จับคู่อัตโนมัติ</span>}
+            {tt('หมวดหมู่')} {!manualCat && categoryId && <span className="badge ok">{tt('จับคู่อัตโนมัติ')}</span>}
           </span>
           <CategorySelect
             value={categoryId}
@@ -82,17 +84,17 @@ export function TransactionForm({ tx, onClose }: { tx?: Transaction; onClose: ()
         </label>
         <div className="grid2">
           <label className="field">
-            <span>วันเวลา</span>
+            <span>{tt('วันเวลา')}</span>
             <input className="input" type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} />
           </label>
           <label className="field">
-            <span>บัญชี</span>
+            <span>{tt('บัญชี')}</span>
             <AccountSelect value={accountId} onChange={setAccountId} />
           </label>
         </div>
-        <button className="btn primary block" disabled={!valid}>บันทึก</button>
+        <button className="btn primary block" disabled={!valid}>{tt('บันทึก')}</button>
         {tx && (
-          <button type="button" className="btn danger block" onClick={remove}>ลบรายการ</button>
+          <button type="button" className="btn danger block" onClick={remove}>{tt('ลบรายการ')}</button>
         )}
       </form>
     </Sheet>

@@ -1,4 +1,5 @@
 import type { SyncRequest, SyncResponse } from '../../shared/schema';
+import { tr } from './i18n';
 
 export class ApiError extends Error {
   constructor(
@@ -29,7 +30,7 @@ async function post<T>(path: string, body: unknown, getToken: TokenGetter): Prom
     lastStatus = res.status;
     if (res.status !== 401) break;
   }
-  throw new ApiError(lastStatus, `server ตอบ ${lastStatus}`);
+  throw new ApiError(lastStatus, tr('เซิร์ฟเวอร์ตอบกลับ {status}', { status: lastStatus }));
 }
 
 export const makeApi = (getToken: TokenGetter) => ({

@@ -1,4 +1,5 @@
 import type { Account, Category, CategoryGroup, Transaction } from './types';
+import { displayName, tr } from './i18n';
 
 const esc = (v: string | number) => {
   const s = String(v ?? '');
@@ -12,20 +13,20 @@ export function exportCsv(
   accountById: Map<string, Account>,
   filename: string
 ) {
-  const header = ['วันที่', 'เวลา', 'ประเภท', 'จำนวนเงิน', 'กลุ่ม', 'หมวด', 'บัญชี', 'note', 'ที่มา', 'ธนาคาร'];
+  const header = [tr('วันที่'), tr('เวลา'), tr('ประเภท'), tr('จำนวนเงิน'), tr('กลุ่ม'), tr('หมวด'), tr('บัญชี'), 'note', tr('ที่มา'), tr('ธนาคาร')];
   const rows = txs.map((t) => {
     const c = t.categoryId ? categoryById.get(t.categoryId) : undefined;
     const g = c ? groupById.get(c.groupId) : undefined;
     return [
       t.date.slice(0, 10),
       t.date.slice(11, 16),
-      t.type === 'income' ? 'รายรับ' : 'รายจ่าย',
+      t.type === 'income' ? tr('รายรับ') : tr('รายจ่าย'),
       t.amount.toFixed(2),
       g?.name ?? '',
-      c?.name ?? 'ยังไม่จัดหมวด',
+      c ? displayName(c.name) : tr('ยังไม่จัดหมวด'),
       (t.accountId && accountById.get(t.accountId)?.name) || '',
       t.note,
-      t.source === 'slip' ? 'สลิป' : 'กรอกเอง',
+      t.source === 'slip' ? tr('สลิป') : tr('กรอกเอง'),
       t.bank ?? ''
     ].map(esc);
   });

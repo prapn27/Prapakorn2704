@@ -8,6 +8,7 @@ import { makeApi } from './api';
 import { dbName, newId, nextTs, pickData, SlipDB } from './localdb';
 import { syncUntilDone } from './sync';
 import type { Account, Category, CategoryGroup, NewTransaction, Transaction } from './types';
+import { tr } from './i18n';
 
 /**
  * สถาปัตยกรรม: UI อ่าน/เขียน IndexedDB ในเครื่อง (Dexie) เสมอ → ใช้ออฟไลน์ได้เต็มที่
@@ -41,6 +42,8 @@ interface DataApi extends DataState {
   addTransactions(ts: NewTransaction[]): void;
   updateTransaction(id: string, patch: Partial<Transaction>): void;
   deleteTransaction(id: string): void;
+  /** ลบหลายรายการในครั้งเดียว (ธุรกรรมเดียว) */
+  deleteTransactions(ids: string[]): void;
   saveAccount(a: Omit<Account, 'id'> & { id?: string }): void;
   deleteAccount(id: string): void;
   saveGroup(g: Omit<CategoryGroup, 'id'> & { id?: string }): void;
@@ -64,7 +67,7 @@ type Op =
 
 function fail(e: unknown) {
   console.error(e);
-  alert('บันทึกข้อมูลไม่สำเร็จ: ' + ((e as Error)?.message || e));
+  alert(tr('บันทึกข้อมูลไม่สำเร็จ: {msg}', { msg: String((e as Error)?.message || e) }));
 }
 
 /** เขียนลงฐานข้อมูลในเครื่อง + outbox ใน transaction เดียว (อะตอมมิก) */
@@ -174,7 +177,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       } catch (e) {
         if (dbRef.current !== d) return;
         c.failures++;
-        setSyncError((e as Error)?.message || 'ซิงก์ไม่สำเร็จ');
+        setSyncError((e as Error)?.message || tr('ซิงก์ไม่สำเร็จ'));
         // ลองใหม่แบบ backoff: 5, 15, 60, 120, 300 วินาที
         const wait = [5, 15, 60, 120, 300][Math.min(c.failures - 1, 4)] * 1000;
         clearTimeout(c.retry);
@@ -282,6 +285,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       deleteTransaction(id) {
         w(async () => [remove('transactions', id)]);
       },
+      deleteTransactions(ids) {
+        w(async () => ids.map((id) => remove('transactions', id)));
+      },
 
       saveAccount(a) {
         w(async (d) => {
@@ -371,7 +377,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (d && u) {
           await runSync();
           const pending = await d.outbox.count();
-          if (pending > 0 && !confirm(`ยังมี ${pending} รายการที่ยังไม่ได้ซิงก์ขึ้น server ถ้าออกจากระบบตอนนี้ข้อมูลส่วนนี้จะหายไป ออกจากระบบต่อไหม?`)) {
+          if (pending > 0 && !confirm(tr('ยังมี {n} รายการที่ยังไม่ได้ซิงก์ขึ้น server ถ้าออกจากระบบตอนนี้ข้อมูลส่วนนี้จะหายไป ออกจากระบบต่อไหม?', { n: pending }))) {
             return;
           }
         }
