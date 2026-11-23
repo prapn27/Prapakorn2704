@@ -2,7 +2,7 @@
 
 เว็บแอพ (PWA) บันทึกรายรับรายจ่าย ติดตั้งลงมือถือได้ **ซิงก์ข้อมูลทุกเครื่อง** และ **ใช้งานตอนไม่มีอินเทอร์เน็ตได้**
 
-> สถานะ: ย้ายฐานข้อมูลจาก Firestore ไป **Cloudflare D1 + Workers** แล้ว (Phase 1–2 เสร็จ ทดสอบกับ Auth Emulator + `wrangler dev` ในเครื่องแล้ว) · **ยังไม่ได้ deploy** (Phase 4) · ดูแผนและสถานะที่ [`docs/PLAN-cloudflare-d1.md`](docs/PLAN-cloudflare-d1.md)
+> สถานะ: ย้ายฐานข้อมูลจาก Firestore ไป **Cloudflare D1 + Workers** แล้ว (Phase 1–3 ทดสอบกับ Auth Emulator + `wrangler dev` ในเครื่องแล้ว) · Phase 4: workflow deploy พร้อม ดูผลการ deploy ครั้งแรกที่แท็บ Actions · ดูแผนและสถานะที่ [`docs/PLAN-cloudflare-d1.md`](docs/PLAN-cloudflare-d1.md)
 
 ## ฟีเจอร์
 
@@ -65,14 +65,21 @@ npm run typecheck
 npm run build
 ```
 
-## Deploy (ยังไม่ได้ทำ — Phase 4)
+## Deploy (GitHub Actions → Cloudflare)
 
-ต้องเตรียม: บัญชี Cloudflare, API Token (Workers Scripts Edit + D1 Edit), โปรเจกต์ Firebase ที่เปิดเฉพาะ Authentication (Google + Email/Password) และเพิ่มโดเมนที่ใช้งานใน Authorized domains ขั้นตอนโดยย่อ:
+Workflow `.github/workflows/deploy.yml` ทำงานเมื่อ push เข้า `main` หรือกด **Actions → Deploy to Cloudflare → Run workflow** ขั้นตอน: ทดสอบ → build → หา/สร้างฐานข้อมูล D1 (`slip-budget`, ภูมิภาค apac) → apply migrations → `wrangler deploy` → smoke test
 
-1. `npx wrangler d1 create slip-budget` แล้วแก้ `database_id` และ `FIREBASE_PROJECT_ID` ใน `wrangler.jsonc`
-2. `npm run build` (ใส่ค่า `VITE_FIREBASE_*` ตาม `.env.example`) → `npx wrangler d1 migrations apply slip-budget --remote` → `npx wrangler deploy`
+ต้องตั้งค่าใน GitHub (**Settings → Secrets and variables → Actions**):
 
-> ยังไม่เคยทดสอบกับ Cloudflare/Firebase จริง GitHub Actions สำหรับ deploy จะทำใน Phase 4
+| ประเภท | ชื่อ | ค่า |
+|---|---|---|
+| Secret | `CLOUDFLARE_API_TOKEN` | token สิทธิ์ Workers Scripts Edit + D1 Edit |
+| Secret | `CLOUDFLARE_ACCOUNT_ID` | Account ID ของ Cloudflare |
+| Variable | `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID` | จาก Firebase → Project settings → Your apps |
+
+และต้องทำครั้งเดียวที่ Firebase: **Authentication → Sign-in method** เปิด Google และ Email/Password, แล้วที่ **Settings → Authorized domains** เพิ่มโดเมนของแอพ (`slip-budget.merlinmeow.workers.dev`) ไม่งั้นล็อกอินด้วย Google จะถูกบล็อก
+
+ที่อยู่แอพ: `https://slip-budget.<subdomain ของบัญชี>.workers.dev` · `FIREBASE_PROJECT_ID` และชื่อ worker อยู่ใน `wrangler.jsonc`, `APP_URL` (ใช้ smoke test) อยู่บนสุดของ `deploy.yml`
 
 ## การใช้งานบนมือถือ
 

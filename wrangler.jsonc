@@ -13,14 +13,14 @@
     {
       "binding": "DB",
       "database_name": "slip-budget",
-      // แทนด้วยค่าจาก `npx wrangler d1 create slip-budget`
+      // ตัวแทน — workflow (.github/workflows/deploy.yml) หา/สร้าง D1 แล้วแทนค่านี้ให้เองตอน deploy
       "database_id": "00000000-0000-0000-0000-000000000000",
       "migrations_dir": "migrations"
     }
   ],
   "vars": {
-    // Firebase project id (ใช้ตรวจ issuer/audience ของ ID token) — แก้เป็นของจริงก่อน deploy
-    "FIREBASE_PROJECT_ID": "your-firebase-project-id"
+    // Firebase project id (ใช้ตรวจ issuer/audience ของ ID token)
+    "FIREBASE_PROJECT_ID": "slip-budget"
   },
   // ลบ tombstone ที่เก่ากว่า 90 วัน ตี 2 เวลาไทย (19:17 UTC)
   "triggers": { "crons": ["17 19 * * *"] }
