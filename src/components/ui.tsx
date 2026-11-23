@@ -121,9 +121,19 @@ export function TxRow({ t, onClick }: { t: Transaction; onClick?: () => void }) 
 }
 
 export function SyncBadge() {
-  const { online, pendingWrites } = useData();
+  const { online, pendingWrites, syncing, syncError, retrySync } = useData();
   if (!online)
-    return <span className="sync offline" title="บันทึกไว้ในเครื่อง จะซิงก์เมื่อออนไลน์">ออฟไลน์</span>;
-  if (pendingWrites) return <span className="sync pending">กำลังซิงก์…</span>;
+    return (
+      <span className="sync offline" title="บันทึกไว้ในเครื่อง จะซิงก์เมื่อออนไลน์">
+        ออฟไลน์{pendingWrites ? ' · รอซิงก์' : ''}
+      </span>
+    );
+  if (syncError && !syncing)
+    return (
+      <button className="sync pending" style={{ border: 0, background: 'none', cursor: 'pointer' }} onClick={retrySync} title={syncError}>
+        ซิงก์ไม่สำเร็จ · ลองใหม่
+      </button>
+    );
+  if (syncing || pendingWrites) return <span className="sync pending">กำลังซิงก์…</span>;
   return <span className="sync">ซิงก์แล้ว</span>;
 }

@@ -1,7 +1,5 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { signOut } from 'firebase/auth';
-import { getFirebase } from '../lib/firebase';
 import { useData } from '../lib/store';
 import { exportCsv } from '../lib/csv';
 import { getOcrWorker } from '../lib/ocr';
@@ -82,7 +80,7 @@ export default function Settings() {
         <div className="small muted" style={{ marginBottom: 8 }}>
           ล็อกอินเป็น {data.user?.email ?? data.user?.displayName ?? '-'} · ข้อมูลซิงก์ทุกเครื่องที่ล็อกอินบัญชีนี้
         </div>
-        <button className="btn danger block" onClick={() => confirm('ออกจากระบบ?') && signOut(getFirebase().auth)}>
+        <button className="btn danger block" onClick={() => confirm('ออกจากระบบ?') && data.signOut()}>
           ออกจากระบบ
         </button>
       </div>

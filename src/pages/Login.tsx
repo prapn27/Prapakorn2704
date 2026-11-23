@@ -6,7 +6,7 @@ import {
   createUserWithEmailAndPassword,
   sendPasswordResetEmail
 } from 'firebase/auth';
-import { getFirebase } from '../lib/firebase';
+import { getAuthInstance } from '../lib/firebase';
 
 const ERRORS: Record<string, string> = {
   'auth/invalid-credential': 'อีเมลหรือรหัสผ่านไม่ถูกต้อง',
@@ -20,7 +20,7 @@ const ERRORS: Record<string, string> = {
 };
 
 export default function Login() {
-  const { auth } = getFirebase();
+  const auth = getAuthInstance();
   const [mode, setMode] = useState<'in' | 'up'>('in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

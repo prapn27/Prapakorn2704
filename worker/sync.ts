@@ -124,7 +124,7 @@ export async function sync(db: D1Database, uid: string, req: SyncRequest, now = 
 
   // เครื่องที่ตามไม่ทัน (tombstone ถูกลบไปแล้ว) หรือล้ำหน้า server (DB ถูกรีเซ็ต) → ให้โหลดใหม่ทั้งหมด
   // หมายเหตุ: ค่า purged_rev อ่านก่อนเข้า batch มีช่องว่างเสี่ยงสั้นมากหากชนกับ cron purge — ยอมรับได้
-  const full = req.since > 0 && (req.since < user.purged_rev || req.since > user.rev);
+  const full = !req.reload && req.since > 0 && (req.since < user.purged_rev || req.since > user.rev);
   const since = full ? 0 : req.since;
   const includeDeleted = since > 0;
 

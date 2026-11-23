@@ -1,6 +1,6 @@
 # แผนย้ายฐานข้อมูล: Firebase → Cloudflare D1 + Workers
 
-> สถานะ: **Phase 1 (backend) เสร็จแล้ว** — ดูหัวข้อ 12 · **Phase 2 (client) ยังไม่ได้เริ่ม** โค้ดฝั่งแอพยังใช้ Firestore อยู่
+> สถานะ: **Phase 1 (backend) และ Phase 2 (client) เสร็จแล้ว** — ดูหัวข้อ 12 และ 13 · Phase 3 ทดสอบรวมในเครื่องผ่านแล้ว (ยังไม่ได้ทดสอบกับ Cloudflare/Firebase จริง) · **Phase 4 (deploy) ยังไม่ได้ทำ**
 > ตัดสินใจแล้ว: ใช้ **auth ทาง A** (Firebase Authentication เฉพาะส่วนล็อกอิน) และคงระบบล็อกอินเดิมไว้
 > เขียนไว้ให้ session ถัดไปหยิบไปทำต่อได้ทันที โดยไม่ต้องย้อนอ่านบทสนทนาเดิม
 
@@ -302,22 +302,22 @@ CREATE UNIQUE INDEX ux_tx_slip ON transactions (user_id, slip_ref) WHERE slip_re
 - [x] Test: upsert, LWW, soft delete, สลิปซ้ำ (รวมกรณีแข่งกันจริง), `since`, แยกผู้ใช้, validation, query plan ใช้ index, จำนวน query ต่อ request
 - [x] cron purge + `full: true`
 
-**Phase 2 — Client**
-- [ ] `localdb.ts`, `api.ts`, `auth.ts`, `sync.ts`
-- [ ] เขียน `store.tsx` ใหม่โดยคง `DataApi` เดิม
-- [ ] แก้ Login, Settings และหน้า "ยังไม่ได้ตั้งค่า"
-- [ ] ลบ `firebase/firestore`, `firebase.json`, `firestore.*`, `.env.emulator` และ `firebase-tools` ออกจาก devDependencies
-- [ ] workbox denylist `/api/` + `storage.persist()`
+**Phase 2 — Client** ✅ เสร็จแล้ว
+- [x] `localdb.ts`, `api.ts`, `sync.ts` (+ `firebase.ts` เหลือเฉพาะ Auth)
+- [x] เขียน `store.tsx` ใหม่โดยคง `DataApi` เดิม (เพิ่ม `syncing`, `syncError`, `notice`, `retrySync`, `signOut`)
+- [x] แก้ Login, Settings, หน้า "ยังไม่ได้ตั้งค่า", SyncBadge และข้อความเปิดครั้งแรกตอนออฟไลน์
+- [x] ลบ `firebase/firestore`, `firestore.rules/indexes`, ตัด Firestore ออกจาก `firebase.json` และ `.env.*` (**คง `firebase-tools` ไว้** เพราะใช้รัน Auth Emulator ตอนพัฒนา)
+- [x] workbox denylist `/api/` + `navigator.storage.persist()`
 
-**Phase 3 — ทดสอบ end-to-end** (ใช้ Playwright และสลิปจำลองแบบเดิม ดูหัวข้อ 11)
-- [ ] สมัครสมาชิกแล้วได้หมวดตั้งต้น **ชุดเดียว** แม้เปิด 2 แท็บพร้อมกัน
-- [ ] กรอกเองแล้วจับคู่หมวดอัตโนมัติ
-- [ ] นำเข้าสลิป 3 ใบ แล้วนำเข้าซ้ำต้องถูกเตือน
-- [ ] **2 browser context (จำลอง 2 เครื่อง):** เครื่อง A บันทึก แล้วเครื่อง B เห็นภายใน 60 วินาที
-- [ ] เครื่อง A ออฟไลน์แล้วบันทึก 3 รายการ + ลบ 1 รายการ → กลับมาออนไลน์ → เครื่อง B เห็นถูกต้อง
-- [ ] แก้รายการเดียวกันจาก 2 เครื่องตอนออฟไลน์ → การแก้ที่ใหม่กว่าต้องชนะ
-- [ ] นำเข้าสลิปเดียวกันจาก 2 เครื่องตอนออฟไลน์ → เหลือ 1 รายการ และอีกเครื่องได้รับแจ้ง
-- [ ] ปิดแล้วเปิดแอพตอนออฟไลน์ ข้อมูลยังอยู่ครบ
+**Phase 3 — ทดสอบ end-to-end** (Playwright 2 browser context + Auth Emulator + `wrangler dev` + D1 จำลอง) ✅ ผ่านในเครื่อง
+- [x] สมัครสมาชิกแล้วได้หมวดตั้งต้นชุดเดียว และเครื่องที่สองที่ล็อกอินไม่ได้หมวดซ้ำ
+- [x] กรอกเองแล้วจับคู่หมวดอัตโนมัติ
+- [x] นำเข้าสลิป 3 ใบ แล้วนำเข้าซ้ำถูกเตือน (ทั้งสองเครื่อง)
+- [x] เครื่อง A บันทึก → เครื่อง B เห็น
+- [x] A ออฟไลน์บันทึก 3 รายการ + ลบ 1 รายการ → กลับมาออนไลน์ → B เห็นถูกต้อง
+- [x] นำเข้าสลิปเดียวกันจาก 2 เครื่องตอนออฟไลน์ → เหลือ 1 รายการ และอีกเครื่องได้รับแจ้ง
+- [x] แก้หมวดที่ A เห็นที่ B · รีโหลดหน้าแล้วข้อมูลยังอยู่ · ออกจากระบบแล้วลบข้อมูลในเครื่อง
+- [ ] ยังไม่ได้ทดสอบ: ปิดแล้วเปิดแอพ **ตอนออฟไลน์** (ใน dev ไม่มี service worker จึงโหลดหน้าเว็บตอนออฟไลน์ไม่ได้ — ต้องลองกับ build จริง), แก้รายการเดียวกันจากสองเครื่องตอนออฟไลน์ (LWW ทดสอบที่ฝั่ง Worker แล้ว แต่ยังไม่ได้ลองผ่าน UI)
 
 **Phase 4 — Deploy**
 - [ ] GitHub Actions: `npm ci` → `npm test` → `npm run build` → `wrangler d1 migrations apply slip-budget --remote` → `wrangler deploy` (ใช้ `cloudflare/wrangler-action`)
@@ -399,3 +399,28 @@ migrations/0001_init.sql · wrangler.jsonc · .dev.vars.example · vitest.config
 - `database_id` และ `FIREBASE_PROJECT_ID` ใน `wrangler.jsonc` เป็นค่าตัวอย่าง **ต้องแก้เป็นของจริงก่อน deploy** (Phase 4)
 - ลองรันในเครื่อง: `cp .dev.vars.example .dev.vars` → `npm run db:migrate:local` → `npm run build` → `npm run dev:worker` แล้วเปิด http://127.0.0.1:8787
 - ยังไม่ได้ทดสอบกับ Cloudflare จริง (D1 จริง, ตรวจ token ด้วย JWKS ของ Google จริง) — ต้องทำตอน Phase 4 หลังมีบัญชี Cloudflare และโปรเจกต์ Firebase
+
+
+---
+
+## 13. สถานะ Phase 2 และสิ่งที่ต่างจากแผนเดิม
+
+### ช่องโหว่ของโปรโตคอลที่พบและแก้ (กระทบ Phase 1)
+เครื่องที่ต้อง **โหลดใหม่ทั้งหมด** (`full`) เมื่อข้อมูลเกิน 1 หน้า จะวนโหลดซ้ำไม่จบ เพราะ cursor ของหน้าแรกยังต่ำกว่า `purged_rev` ทำให้ server ตอบ `full: true` ทุกหน้า
+**แก้:** request เพิ่มฟิลด์ **`reload: true`** (client ส่งเมื่ออยู่ระหว่างโหลดใหม่ต่อจากหน้าก่อน) → server ไม่ประเมิน `full` ซ้ำ · client เก็บสถานะ `reloading` ไว้ใน `meta` จึงทำต่อได้แม้ปิดแอพกลางทาง · มีเทสต์ทั้งฝั่ง Worker และ sync engine
+
+### การตัดสินใจฝั่ง client
+- **IndexedDB แยกตามผู้ใช้** (`slipbudget-<uid>`) · ออกจากระบบ → ซิงก์ก่อน ถ้ายังมีของค้างส่งจะถามยืนยันว่าจะหาย แล้วลบฐานข้อมูลทิ้ง
+- **เขียนลงเครื่องแล้วค่อยซิงก์** ทุกการเขียน (แถว + outbox) อยู่ใน Dexie transaction เดียว · `clientUpdatedAt` เพิ่มขึ้นเสมอแม้แก้ในมิลลิวินาทีเดียวกัน
+- **ไม่ทับแถวที่ยังมีของค้างใน outbox** · แถวที่แพ้ LWW ถูกแทนด้วยค่าจาก server (server ส่งกลับมาให้)
+- **สลิปซ้ำที่ server ปฏิเสธ** → ลบรายการนั้นในเครื่องพร้อมแสดงแถบแจ้งเตือน (ปิดได้)
+- **ซิงก์ล้มเหลว** → ลองใหม่แบบ backoff 5/15/60/120/300 วินาที และ SyncBadge เป็นปุ่ม "ซิงก์ไม่สำเร็จ · ลองใหม่"
+- **เปิดครั้งแรกบนเครื่องใหม่ตอนออฟไลน์** แสดงข้อความ "ต้องต่ออินเทอร์เน็ตเพื่อตั้งค่าครั้งแรก" (ล็อกอินครั้งแรกต้องออนไลน์อยู่แล้ว)
+- **ลบ workflow GitHub Pages เดิม** (`deploy.yml`) เพราะแอพต้องมี `/api` อยู่ origin เดียวกัน — จะเขียน workflow ใหม่ใน Phase 4
+- ขนาด bundle ของ Firebase ลดจาก ~570 kB เหลือ ~170 kB (ตัด Firestore ออก)
+
+### สิ่งที่ยังไม่ได้ทำ / ข้อควรรู้
+- **Phase 4:** บัญชี Cloudflare จริง, D1 จริง, ตรวจ token ด้วย JWKS ของ Google จริง, GitHub Actions
+- ข้อมูลจากเครื่องอื่นจะมาถึงภายในประมาณ 60 วินาที (หรือทันทีที่กลับมาเปิดแอพ/กลับมาออนไลน์) ไม่ใช่ real-time
+- ยังไม่มีปุ่ม "ลบข้อมูลทั้งหมด/ลบบัญชี" (อยู่ในรายการ "ทำทีหลัง")
+- เรื่องการใช้งานตอนออฟไลน์เต็มรูปแบบ (เปิดแอพตอนไม่มีเน็ต) ต้องทดสอบกับ build จริงที่มี service worker

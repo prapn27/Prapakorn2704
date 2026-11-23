@@ -31,6 +31,8 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         // ไฟล์ OCR ใหญ่ — ไม่ precache แต่แคชตอนใช้งานครั้งแรก (ดู runtimeCaching)
         globIgnores: ['ocr/**'],
+        // ไม่ให้ service worker แตะ API (ต้องไปถึง server เสมอ)
+        navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {
             // Tesseract worker, wasm core และข้อมูลภาษาไทย/อังกฤษ (โฮสต์กับตัวแอพเอง)
@@ -46,12 +48,17 @@ export default defineConfig({
       }
     })
   ],
+  server: {
+    // `npm run dev:worker` (wrangler dev) ฟังที่ 8787
+    proxy: { '/api': 'http://127.0.0.1:8787' }
+  },
   build: {
     chunkSizeWarningLimit: 800,
     rollupOptions: {
       output: {
         manualChunks: {
-          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+          firebase: ['firebase/app', 'firebase/auth'],
+          dexie: ['dexie', 'dexie-react-hooks'],
           charts: ['chart.js', 'react-chartjs-2'],
           ocr: ['tesseract.js', 'jsqr']
         }

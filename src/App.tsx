@@ -33,7 +33,7 @@ const NAV = [
 ];
 
 function Shell() {
-  const { user, authReady, loaded } = useData();
+  const { user, authReady, loaded, online, syncing, syncError, retrySync, notice, dismissNotice } = useData();
   const loc = useLocation();
   const [adding, setAdding] = useState(false);
 
@@ -51,8 +51,35 @@ function Shell() {
         </div>
         <SyncBadge />
       </header>
+      {notice && (
+        <div className="page" style={{ paddingBottom: 0 }}>
+          <div className="banner warn" role="status">
+            <span>ℹ️</span>
+            <span className="spacer" style={{ whiteSpace: 'pre-line' }}>{notice}</span>
+            <button className="icon-btn" onClick={dismissNotice} aria-label="ปิดข้อความ">✕</button>
+          </div>
+        </div>
+      )}
       {!loaded ? (
-        <div className="empty">กำลังโหลดข้อมูล…</div>
+        <div className="page">
+          <div className="card stack" style={{ textAlign: 'center' }}>
+            {syncing ? (
+              <div className="muted">กำลังตั้งค่าและดาวน์โหลดข้อมูล…</div>
+            ) : (
+              <>
+                <div>
+                  {online
+                    ? syncError
+                      ? 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ'
+                      : 'กำลังโหลดข้อมูล…'
+                    : 'ต้องต่ออินเทอร์เน็ตเพื่อตั้งค่าครั้งแรก'}
+                </div>
+                <div className="small muted">เปิดครั้งแรกบนเครื่องนี้ต้องออนไลน์เพื่อดึงข้อมูล หลังจากนั้นใช้ออฟไลน์ได้</div>
+                <button className="btn" onClick={retrySync}>ลองใหม่</button>
+              </>
+            )}
+          </div>
+        </div>
       ) : (
         <Routes>
           <Route path="/" element={<Dashboard />} />

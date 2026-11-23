@@ -45,8 +45,8 @@ async function call(uid: string, path: string, body?: unknown, method = 'POST') 
   );
 }
 
-async function sync(uid: string, since = 0, mutations: unknown[] = []): Promise<SyncResponse> {
-  const r = await call(uid, '/api/sync', { since, mutations });
+async function sync(uid: string, since = 0, mutations: unknown[] = [], reload?: boolean): Promise<SyncResponse> {
+  const r = await call(uid, '/api/sync', { since, mutations, ...(reload ? { reload } : {}) });
   expect(r.status).toBe(200);
   return r.json();
 }
@@ -441,6 +441,39 @@ describe('purge และโหลดใหม่ทั้งหมด', () => {
     const r = await sync(u, 9999);
     expect(r.full).toBe(true);
     expect(r.changes.transactions).toHaveLength(1);
+  });
+
+  it('full reload ที่ข้อมูลเกิน 1 หน้า ต้องจบได้ (ไม่วนได้ full ซ้ำ) และได้ข้อมูลครบรวม tombstone ที่เกิดระหว่างทาง', async () => {
+    const u = uid();
+    const total = PAGE_SIZE + 50;
+    await env.DB.prepare('INSERT INTO users (id, rev, purged_rev, seeded, created_at) VALUES (?, ?, ?, 1, 0)').bind(u, total, total).run();
+    await env.DB
+      .prepare(
+        `WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < ?)
+         INSERT INTO transactions (id, user_id, type, amount, date, note, source, created_at, rev, client_updated_at, server_updated_at, deleted)
+         SELECT 'bulk-' || printf('%06d', i), ?, 'expense', 10, '2026-11-01T00:00', '', 'manual', 0, i, 1, 1, 0 FROM n`
+      )
+      .bind(total, u)
+      .run();
+
+    // เครื่องเก่า (since=5 < purged_rev) → หน้าแรกบอก full และตัดหน้า cursor ยังต่ำกว่า purged_rev
+    const first = await sync(u, 5);
+    expect(first.full).toBe(true);
+    expect(first.more).toBe(true);
+    expect(first.rev).toBeLessThan(total);
+
+    // ถ้าไม่ส่ง reload จะได้ full ซ้ำ (พฤติกรรมที่ทำให้วนไม่จบ) — ส่ง reload แล้วต้องไม่ใช่
+    expect((await sync(u, first.rev)).full).toBe(true);
+    const seen = new Set(first.changes.transactions.map((t) => t.id));
+    let since = first.rev;
+    for (let i = 0; i < 5; i++) {
+      const r = await sync(u, since, [], true);
+      expect(r.full).toBe(false);
+      r.changes.transactions.forEach((t) => seen.add(t.id));
+      since = r.rev;
+      if (!r.more) break;
+    }
+    expect(seen.size).toBe(total);
   });
 
   it('full reload ยังรับ mutation ที่ค้างอยู่ใน outbox', async () => {

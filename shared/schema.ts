@@ -71,6 +71,11 @@ export type Mutation = z.infer<typeof mutationSchema>;
 
 export const syncRequestSchema = z.object({
   since: z.number().int().nonnegative(),
+  /**
+   * true = client กำลังโหลดใหม่ทั้งหมดต่อจากหน้าก่อนหน้า (หลังได้ full:true) → server ไม่ประเมิน full ซ้ำ
+   * ไม่งั้น cursor ของหน้าแรกที่ยังต่ำกว่า purged_rev จะทำให้ได้ full:true วนไม่จบ
+   */
+  reload: z.boolean().optional(),
   mutations: z.array(mutationSchema).max(MAX_MUTATIONS)
 });
 export type SyncRequest = z.infer<typeof syncRequestSchema>;
