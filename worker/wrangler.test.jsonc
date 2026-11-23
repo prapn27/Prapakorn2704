@@ -1,9 +1,0 @@
-{
-  // config สำหรับเทสต์เท่านั้น (ไม่มี assets เพื่อไม่ต้อง build ก่อนเทสต์)
-  "name": "slip-budget-test",
-  "main": "./index.ts",
-  "compatibility_date": "2026-11-01",
-  "compatibility_flags": ["nodejs_compat"],
-  "d1_databases": [{ "binding": "DB", "database_name": "test", "database_id": "test" }],
-  "vars": { "FIREBASE_PROJECT_ID": "test-project" }
-}
