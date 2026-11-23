@@ -1,0 +1,4 @@
+# คัดลอกเป็น .dev.vars สำหรับ `wrangler dev` เท่านั้น — ห้ามตั้ง ENV=dev บน production
+# ENV=dev ทำให้ Worker ยอมรับ token ที่ไม่มีลายเซ็นจาก Firebase Auth Emulator
+ENV=dev
+FIREBASE_PROJECT_ID=demo-slip-budget

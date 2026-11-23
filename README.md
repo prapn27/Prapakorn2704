@@ -1,6 +1,6 @@
 # สลิปบัญชี — แอพรายรับรายจ่าย
 
-> **กำลังวางแผนย้ายฐานข้อมูลไป Cloudflare D1 + Workers** — ดู [`docs/PLAN-cloudflare-d1.md`](docs/PLAN-cloudflare-d1.md) (โค้ดตอนนี้ยังใช้ Firebase)
+> **กำลังย้ายฐานข้อมูลไป Cloudflare D1 + Workers** — Phase 1 (backend ใน `worker/`) เสร็จแล้ว ส่วนแอพยังใช้ Firestore อยู่จนกว่าจะทำ Phase 2 · ดู [`docs/PLAN-cloudflare-d1.md`](docs/PLAN-cloudflare-d1.md)
 
 เว็บแอพ (PWA) บันทึกรายรับรายจ่าย ติดตั้งลงมือถือได้ ซิงก์ข้อมูลทุกเครื่องผ่าน Firebase และใช้งานตอนไม่มีอินเทอร์เน็ตได้
 

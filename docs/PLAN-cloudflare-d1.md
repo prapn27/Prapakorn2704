@@ -1,6 +1,7 @@
 # แผนย้ายฐานข้อมูล: Firebase → Cloudflare D1 + Workers
 
-> สถานะ: **แผนเท่านั้น ยังไม่ได้แก้โค้ด** — โค้ดใน branch ตอนนี้ยังใช้ Firebase อยู่
+> สถานะ: **Phase 1 (backend) เสร็จแล้ว** — ดูหัวข้อ 12 · **Phase 2 (client) ยังไม่ได้เริ่ม** โค้ดฝั่งแอพยังใช้ Firestore อยู่
+> ตัดสินใจแล้ว: ใช้ **auth ทาง A** (Firebase Authentication เฉพาะส่วนล็อกอิน) และคงระบบล็อกอินเดิมไว้
 > เขียนไว้ให้ session ถัดไปหยิบไปทำต่อได้ทันที โดยไม่ต้องย้อนอ่านบทสนทนาเดิม
 
 ---
@@ -293,13 +294,13 @@ CREATE UNIQUE INDEX ux_tx_slip ON transactions (user_id, slip_ref) WHERE slip_re
 
 ## 8. ลำดับงาน (checklist)
 
-**Phase 1 — Backend**
-- [ ] ติดตั้ง `wrangler`, `hono`, `jose`, `zod`, `@cloudflare/vitest-pool-workers`
-- [ ] `migrations/0001_init.sql` + `wrangler.jsonc`
-- [ ] `worker/auth.ts` (ทาง A) พร้อมโหมด dev
-- [ ] `/api/bootstrap`, `/api/sync`, `/api/me`
-- [ ] Test: upsert, LWW (แก้ที่เก่ากว่าต้องไม่ทับที่ใหม่กว่า), soft delete, สลิปซ้ำถูก reject, `since` ดึงเฉพาะที่เปลี่ยน, ผู้ใช้ A มองไม่เห็นข้อมูลของ B, payload ผิดรูปแบบถูกปฏิเสธ
-- [ ] cron purge + `full: true`
+**Phase 1 — Backend** ✅ เสร็จแล้ว (เทสต์ 34 ข้อผ่าน และลองกับ `wrangler dev` จริงแล้ว)
+- [x] ติดตั้ง `wrangler`, `hono`, `jose`, `zod`, `@cloudflare/vitest-plugin` (ชื่อใหม่ของ `vitest-pool-workers`)
+- [x] `migrations/0001_init.sql` + `wrangler.jsonc`
+- [x] `worker/auth.ts` (ทาง A) พร้อมโหมด dev
+- [x] `/api/bootstrap`, `/api/sync`, `/api/me`
+- [x] Test: upsert, LWW, soft delete, สลิปซ้ำ (รวมกรณีแข่งกันจริง), `since`, แยกผู้ใช้, validation, query plan ใช้ index, จำนวน query ต่อ request
+- [x] cron purge + `full: true`
 
 **Phase 2 — Client**
 - [ ] `localdb.ts`, `api.ts`, `auth.ts`, `sync.ts`
@@ -354,3 +355,47 @@ CREATE UNIQUE INDEX ux_tx_slip ON transactions (user_id, slip_ref) WHERE slip_re
 - container ของ session เดิม **บล็อก CDN** (jsdelivr, tessdata) จึงเปลี่ยนไปเก็บไฟล์ OCR ไว้กับแอพ (`scripts/copy-ocr-assets.mjs` → `public/ocr/`) ทำให้ Worker Static Assets เสิร์ฟไฟล์ OCR ได้เลย แต่ต้องเช็กขนาดไฟล์: Workers Assets จำกัดไฟล์ละ 25 MB ส่วนไฟล์ใหญ่สุดของเราคือ `tesseract-core-*.wasm.js` ประมาณ 4 MB จึงไม่มีปัญหา
 - สลิปจำลองสร้างด้วย Playwright + `qrcode` (HTML ฟอนต์ Loma) โดยใช้ QR รูปแบบ TLV `00 41 [00 06 000001][01 03 <รหัสธนาคาร>][02 xx <เลขอ้างอิง>] 51 02 TH 91 04 xxxx`
 - ตอนนั้นใช้ Firebase Emulator บน `127.0.0.1` เพราะ `localhost` resolve เป็น `::1` แล้วต่อไม่ได้ใน container
+
+
+---
+
+## 12. สถานะ Phase 1 และสิ่งที่ต่างจากแผนเดิม
+
+### ไฟล์ที่เพิ่ม
+```
+shared/schema.ts       สัญญา /api/sync (zod) ใช้ร่วมกับ client ใน Phase 2 — MAX_MUTATIONS, PAGE_SIZE, ชนิดของ response
+shared/defaults.ts     หมวด/กลุ่ม/บัญชีตั้งต้น (src/lib/defaults.ts re-export จากที่นี่)
+worker/index.ts        Hono app (+ cron) · createApp({ keys }) ฉีดกุญแจตอนเทสต์ได้
+worker/auth.ts         ตรวจ Firebase ID token (RS256 + issuer + audience) · ENV=dev ยอมรับ token ไม่มีลายเซ็นของ emulator
+worker/sync.ts         โปรโตคอล sync · worker/bootstrap.ts · worker/purge.ts · worker/tables.ts
+worker/sync.test.ts    เทสต์ (รันใน workerd + D1 จำลอง)
+migrations/0001_init.sql · wrangler.jsonc · .dev.vars.example · vitest.config.ts · worker/vitest.config.ts
+```
+
+### สิ่งที่ต่างจากข้อความด้านบน (Phase 2 ต้องยึดตามนี้)
+
+| หัวข้อ | แผนเดิม | ที่ทำจริง | เหตุผล |
+|---|---|---|---|
+| `applied` ใน response | รายการ id | **`number[]` = index ของ mutation ใน request** และมี `rejected[].index` | outbox อาจมีหลาย mutation ของ id เดียวกัน (สร้างแล้วแก้) จึงใช้ id แยกไม่ได้ |
+| จำนวน mutation ต่อ request | 500 | **30** (`MAX_MUTATIONS`) | Workers แผนฟรีใช้ได้ **50 query ต่อ 1 invocation** (เช็กค่าล่าสุดที่หน้าราคา) ทดสอบแล้วว่ากรณีแย่สุดใช้ ≤ 50 → client ต้องวนส่งจน outbox ว่าง |
+| ตัดหน้า | ไม่มี | response มี **`more`**: ถ้า true ให้เรียก sync ซ้ำทันทีด้วย `rev` ที่ได้เป็น `since` | โหลดข้อมูลก้อนใหญ่ครั้งแรก (จำกัด 2,000 แถวต่อตาราง) |
+| อายุ tombstone | ใช้ `client_updated_at` | เพิ่มคอลัมน์ **`server_updated_at`** | ไม่เชื่อนาฬิกาเครื่องผู้ใช้ ไม่งั้นเครื่องที่นาฬิกาเพี้ยนทำให้การลบถูก purge เร็วเกินไป |
+| mutation ที่แพ้ LWW | ไม่ได้ระบุ | นับเป็น `applied` และ **ส่งแถวปัจจุบันของ server กลับใน `changes` ด้วย** แม้ rev ต่ำกว่า `since` | ไม่งั้นเครื่องที่ข้าม `changes` เพราะมี mutation ค้าง จะไม่มีทางได้ค่าล่าสุด |
+| `full` | `since < purged_rev` | เพิ่ม **`since > users.rev`** (DB ถูกรีเซ็ต) | ป้องกันเครื่องที่ล้ำหน้า server |
+| consistency | — | ทั้งเขียน อ่าน และเพิ่ม rev อยู่ใน `db.batch()` เดียว | กันกรณีสองเครื่อง sync พร้อมกันแล้วเครื่องหนึ่งได้ cursor ข้ามแถวที่ยังไม่ commit |
+
+### สิ่งที่ client (Phase 2) ต้องทำตามสัญญา
+1. ส่ง mutation จาก outbox ทีละ ≤ 30 รายการ เรียงตามลำดับที่เกิด
+2. ลบจาก outbox: ทุก index ใน `applied` และ `rejected` (`rejected` ให้แจ้งผู้ใช้/แก้ข้อมูลในเครื่อง เช่น `duplicate_slip` → ลบรายการที่นำเข้าซ้ำ)
+3. ถ้า `full: true` → ล้างตารางข้อมูลในเครื่อง (ไม่ล้าง outbox) แล้วใช้ `changes` เป็นข้อมูลทั้งหมด
+4. apply `changes`: แถว `deleted: true` ให้ลบในเครื่อง · **อย่าทับแถวที่ยังมี mutation ค้างใน outbox** ยกเว้นแถวที่มาจาก mutation ที่แพ้ LWW ซึ่งอยู่ใน request เดียวกัน (ให้ลบ mutation นั้นออกจาก outbox ก่อนแล้วค่อย apply)
+5. ถ้า `more: true` ให้เรียกซ้ำทันที · เก็บ `rev` เป็น `since` ครั้งถัดไปหลัง apply เสร็จใน Dexie transaction เดียวกัน
+6. ถ้าถูก 401 ให้ขอ token ใหม่ (`getIdToken(true)`) แล้วลองอีกครั้ง ถ้ายังไม่ได้ให้ถือว่าออกจากระบบ
+
+### ข้อควรรู้เรื่องเครื่องมือ
+- `@cloudflare/vitest-pool-workers` ถูกยกเลิกและเปลี่ยนชื่อเป็น **`@cloudflare/vitest-plugin`** ต้องใช้ **vitest ≥ 4.1** (อัปเกรดแล้ว เทสต์ฝั่ง client เดิมผ่านครบ)
+- **npm 10 ในเครื่อง/สภาพแวดล้อมนี้ติดตั้งไม่ผ่าน** (บั๊ก arborist `edgesOut` ตอนแก้ dependency tree) แก้ด้วย `npx -y npm@11 install` เมื่อต้องเพิ่มหรือเปลี่ยนแพ็กเกจ ส่วน `npm ci` ด้วย npm 10 จาก lockfile ใช้ได้ปกติ (ตรวจแล้ว) จึงไม่กระทบ CI
+- npm 11 ไม่รัน install script ของแพ็กเกจอัตโนมัติ (esbuild, workerd) แต่ทุกอย่างใช้งานได้ ไม่ต้อง approve
+- `database_id` และ `FIREBASE_PROJECT_ID` ใน `wrangler.jsonc` เป็นค่าตัวอย่าง **ต้องแก้เป็นของจริงก่อน deploy** (Phase 4)
+- ลองรันในเครื่อง: `cp .dev.vars.example .dev.vars` → `npm run db:migrate:local` → `npm run build` → `npm run dev:worker` แล้วเปิด http://127.0.0.1:8787
+- ยังไม่ได้ทดสอบกับ Cloudflare จริง (D1 จริง, ตรวจ token ด้วย JWKS ของ Google จริง) — ต้องทำตอน Phase 4 หลังมีบัญชี Cloudflare และโปรเจกต์ Firebase

@@ -9,3 +9,5 @@ firestore-debug.log*
 ui-debug.log*
 public/ocr
 *.tsbuildinfo
+.dev.vars
+.wrangler
