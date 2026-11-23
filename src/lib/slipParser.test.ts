@@ -103,3 +103,102 @@ describe('helpers', () => {
   it('cleanOcrText ลบช่องว่างในคำไทย', () => expect(cleanOcrText('กา แฟ 50')).toBe('กาแฟ 50'));
   it('parseKeywords ตัดซ้ำ', () => expect(parseKeywords('ข้าว, กาแฟ\nข้าว ,')).toEqual(['ข้าว', 'กาแฟ']));
 });
+
+// ข้อความ OCR จริงของสลิป MAKE by KBank (ช่อง note เป็นกล่องเปล่าไม่มีป้ายกำกับ) ปรับชื่อ/เลขรายการเป็นข้อมูลสมมติ
+const MAKE_SLIP = `—-—   ๐   (=
+โอนเงินสําเร็จ                      make
+23 พ.ุย. 2569 11:15                                       ศกด
+ นาย ก ทดสอบ
+0๐๐5๓28971-%
+ นาง ข ตัวอย่าง ils
+XXX-X-X9978-x
+จํานวน
+1.00 vn
+ค่าธรรมเนียม
+0.00 บาท                                       สแกนเพอตรวจสอบ
+เลขที่รายการ: 012345678abcdefghiJK
+test`;
+const withTail = (tail: string) => MAKE_SLIP.replace(/\ntest$/, tail);
+
+describe('สลิปที่ช่อง note ไม่มีป้ายกำกับ (MAKE by KBank)', () => {
+  it('เดา note จากข้อความท้ายสลิป และอ่านวันที่ที่ OCR แทรกสระผิดที่ได้', () => {
+    const r = parseSlipText(MAKE_SLIP, new Date(2026, 10, 23));
+    expect(r.note).toBe('test');
+    expect(r.noteGuessed).toBe(true);
+    expect(r.amount).toBe(1);
+    expect(r.date).toBe('2026-11-23T11:15');
+  });
+
+  it('ตัดสัญลักษณ์ขยะที่เกิดจากไอคอนกระดาษบินข้างกล่อง note', () => {
+    for (const tail of ['\ntest ©', '\ntest >', '\n= test |', '\ntest\nุ', '\ntest\n>>']) {
+      const r = parseSlipText(withTail(tail), new Date(2026, 10, 23));
+      expect(r.note, JSON.stringify(tail)).toBe('test');
+    }
+  });
+
+  it('note ภาษาไทยและคำอังกฤษยาว ๆ ไม่ถูกเข้าใจผิดว่าเป็นเลขรายการ', () => {
+    expect(parseSlipText(withTail('\nค่าข้าว')).note).toBe('ค่าข้าว');
+    expect(parseSlipText(withTail('\nrestaurant')).note).toBe('restaurant');
+  });
+
+  it('เลขที่รายการที่ขึ้นบรรทัดใหม่ไม่ถูกหยิบเป็น note', () => {
+    const t = MAKE_SLIP.replace('เลขที่รายการ: 012345678abcdefghiJK', 'เลขที่รายการ:\n012345678abcdefghiJK');
+    expect(parseSlipText(t).note).toBe('test');
+    expect(parseSlipText(t.replace(/\ntest$/, '')).note).toBe('');
+  });
+
+  it('สลิปที่ไม่ได้พิมพ์ note → ว่าง ไม่เดามั่ว', () => {
+    const r = parseSlipText(withTail(''));
+    expect(r.note).toBe('');
+    expect(r.noteGuessed).toBe(false);
+  });
+
+  it('ข้อความท้ายสลิปที่เป็นของระบบ (สแกนตรวจสอบ/ขอบคุณ) ไม่ใช่ note', () => {
+    expect(parseSlipText(withTail('\nสแกนเพื่อตรวจสอบ\nขอบคุณที่ใช้บริการ')).note).toBe('');
+  });
+
+  it('มีป้ายกำกับแต่ค่าว่าง → ไม่เดา', () => {
+    const r = parseSlipText('จำนวน\n50.00 บาท\n01/12/2569 10:00\nบันทึกช่วยจำ:\n');
+    expect(r.note).toBe('');
+    expect(r.noteGuessed).toBe(false);
+  });
+
+  it('มีป้ายกำกับ → ใช้ค่าจากป้าย ไม่ใช่การเดา', () => {
+    const r = parseSlipText('จำนวน 50.00 บาท\nบันทึกช่วยจำ: ค่าข้าว\n01/12/2569 10:00\nเลขที่รายการ: 012345678abcdefghiJK\nข้อความอื่น');
+    expect(r.note).toBe('ค่าข้าว');
+    expect(r.noteGuessed).toBe(false);
+  });
+});
+
+describe('วันที่ที่ OCR อ่านชื่อเดือนเพี้ยน', () => {
+  const NOW = new Date(2026, 10, 23);
+  const d = (s: string) => parseSlipText(`${s} 09:30\nจำนวน 10.00 บาท`, NOW).date;
+
+  it('สระ/วรรณยุกต์แทรกผิดที่', () => {
+    expect(d('23 พ.ุย. 2569')).toBe('2026-11-23T09:30');
+    expect(d('5 ม.ิ.ย. 2569')).toBe('2026-06-05T09:30');
+    expect(d('1 ธ.ั.ค. 2569')).toBe('2026-12-01T09:30');
+  });
+
+  it('ชื่อเดือนที่ถูกต้องยังอ่านได้เหมือนเดิม รวมคู่ที่ตัดสระแล้วซ้ำกัน (ม.ค. กับ มี.ค.)', () => {
+    expect(d('3 ม.ค. 2569')).toBe('2026-01-03T09:30');
+    expect(d('3 มี.ค. 2569')).toBe('2026-03-03T09:30');
+    expect(d('22 พฤศจิกายน 2569')).toBe('2026-11-22T09:30');
+  });
+
+  it('เดือนที่คลุมเครือหลังตัดสระ → ไม่เดา (คืน null ให้ผู้ใช้กรอกเอง)', () => {
+    expect(d('3 ม.ุค. 2569')).toBeNull();
+  });
+});
+
+describe('QR ของสลิป KBank จริง', () => {
+  it('โครงสร้าง TLV: รหัสธนาคาร 004 และเลขอ้างอิง 20 ตัว', () => {
+    const sub = '0006000001' + '0103004' + '0220' + 'ABCDEFGHIJ0123456789';
+    const raw = '0041' + sub + '5102TH' + '9104ABCD';
+    expect(raw).toHaveLength(59);
+    const qr = parseSlipQr(raw);
+    expect(qr.bankCode).toBe('004');
+    expect(qr.transRef).toBe('ABCDEFGHIJ0123456789');
+    expect(slipRefFromQr(qr)).toBe('004:ABCDEFGHIJ0123456789');
+  });
+});

@@ -260,7 +260,14 @@ export default function Import() {
                 </label>
               </div>
               <label className="field">
-                <span>note บนสลิป</span>
+                <span>
+                  note บนสลิป{' '}
+                  {it.result?.noteGuessed && it.note === it.result.note && (
+                    <span className="badge warn" title="สลิปนี้ไม่มีป้ายกำกับช่อง note แอพเดาจากข้อความท้ายสลิป">
+                      เดาจากตำแหน่ง — ตรวจสอบ
+                    </span>
+                  )}
+                </span>
                 <input className="input" value={it.note} placeholder="(ไม่มี note)" onChange={(e) => onNote(it, e.target.value)} />
               </label>
               <label className="field">

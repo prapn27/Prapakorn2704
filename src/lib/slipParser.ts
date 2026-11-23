@@ -8,6 +8,8 @@ export interface ParsedSlip {
   /** YYYY-MM-DDTHH:mm */
   date: string | null;
   note: string;
+  /** true = ไม่มีป้ายกำกับ "บันทึกช่วยจำ/หมายเหตุ" บนสลิป แอพเดา note จากข้อความท้ายสลิป (ควรให้ผู้ใช้ตรวจ) */
+  noteGuessed: boolean;
   bank: string | null;
 }
 
@@ -64,6 +66,24 @@ const MONTHS: Record<string, number> = {};
   ['พย', 'พฤศจิกายน', 'nov', 'november'],
   ['ธค', 'ธันวาคม', 'dec', 'december']
 ].forEach((names, i) => names.forEach((n) => (MONTHS[n] = i + 1)));
+
+/** สระบน/ล่างและวรรณยุกต์ — OCR ชอบแทรกมาผิดที่ เช่น "พ.ย." → "พ.ุย." */
+const THAI_MARKS = /[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/g;
+const stripMarks = (s: string) => s.replace(THAI_MARKS, '');
+const MONTHS_LOOSE: Record<string, number> = {};
+{
+  const ambiguous = new Set<string>();
+  for (const [name, m] of Object.entries(MONTHS)) {
+    const k = stripMarks(name);
+    if (MONTHS_LOOSE[k] !== undefined && MONTHS_LOOSE[k] !== m) ambiguous.add(k);
+    MONTHS_LOOSE[k] = m;
+  }
+  ambiguous.forEach((k) => delete MONTHS_LOOSE[k]); // เช่น "มค" (ม.ค.) กับ "มีค" (มี.ค.) ตัดสระแล้วซ้ำกัน
+}
+function lookupMonth(raw: string): number | undefined {
+  const key = raw.toLowerCase().replace(/[\s.]/g, '');
+  return MONTHS[key] ?? MONTHS_LOOSE[stripMarks(key)];
+}
 
 const NOTE_LABELS = ['บันทึกช่วยจำ', 'บันทึกช่วยจํา', 'บันทึก', 'หมายเหตุ', 'ข้อความ', 'memo', 'note', 'remark'];
 const STOP_LABELS = [
@@ -154,14 +174,14 @@ export function extractDate(lines: string[], now = new Date()): string | null {
   let ymd: [number, number, number] | null = null;
   let lineIdx = -1;
 
-  const named = /(\d{1,2})\s*([ก-๙]{1,3}\s?\.?\s?[ก-๙]{0,3}\s?\.?|[a-z]{3,9}\.?)\s*,?\s*(\d{4}|\d{2})(?!\d)/i;
+  // ชื่อเดือนไทย: ย่อ (พ.ย.) เต็ม (พฤศจิกายน) หรือที่ OCR แทรกจุด/ช่องว่าง/สระเพี้ยน (ม.ิ.ย.) — จำกัดความยาวกันกวาดข้อความอื่นมา
+  const named = /(\d{1,2})\s*([ก-๙][ก-๙.\s]{0,11}?|[a-z]{3,9}\.?)\s*,?\s*(\d{4}|\d{2})(?!\d)/i;
   const numeric = /(\d{1,2})[/-](\d{1,2})[/-](\d{4}|\d{2})(?!\d)/;
 
   for (let i = 0; i < lines.length && !ymd; i++) {
     const m = lines[i].match(named);
     if (m) {
-      const key = m[2].toLowerCase().replace(/[\s.]/g, '');
-      const month = MONTHS[key];
+      const month = lookupMonth(m[2]);
       const year = resolveYear(m[3], now);
       const day = Number(m[1]);
       if (month && year && validDate(year, month, day)) {
@@ -199,27 +219,78 @@ export function extractDate(lines: string[], now = new Date()): string | null {
   return `${ymd[0]}-${pad(ymd[1])}-${pad(ymd[2])}T${pad(hh)}:${pad(mm)}`;
 }
 
-export function extractNote(lines: string[]): string {
+interface LabeledNote {
+  found: boolean;
+  value: string;
+}
+
+/** note ที่มีป้ายกำกับ เช่น "บันทึกช่วยจำ: ค่าข้าว" (found = เจอป้าย แม้ค่าว่างก็ไม่ต้องเดา) */
+function extractLabeledNote(lines: string[]): LabeledNote {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const c = compact(line);
     const label = NOTE_LABELS.find((k) => c.startsWith(k));
     if (!label) continue;
     // ตัดป้ายกำกับออก (ป้ายอาจมีช่องว่างแทรกจาก OCR)
-    let rest = line;
     let seen = 0;
     let cut = 0;
     for (let k = 0; k < line.length && seen < label.length; k++) {
       if (!/\s/.test(line[k])) seen++;
       cut = k + 1;
     }
-    rest = line.slice(cut).replace(/^[\s:：\-–]+/, '').trim();
-    if (rest) return rest;
+    const rest = line.slice(cut).replace(/^[\s:：\-–]+/, '').trim();
+    if (rest) return { found: true, value: rest };
     const next = (lines[i + 1] || '').trim();
-    if (next && !STOP_LABELS.some((s) => compact(next).startsWith(s))) return next;
-    return '';
+    if (next && !STOP_LABELS.some((s) => compact(next).startsWith(s))) return { found: true, value: next };
+    return { found: true, value: '' };
   }
-  return '';
+  return { found: false, value: '' };
+}
+
+export function extractNote(lines: string[]): string {
+  return extractLabeledNote(lines).value;
+}
+
+const REF_LABELS = [
+  'เลขที่รายการ', 'รหัสอ้างอิง', 'เลขที่อ้างอิง', 'หมายเลขอ้างอิง', 'รหัสรายการ',
+  'transactionid', 'transactionno', 'transactionref', 'refno', 'reference'
+];
+const KNOWN_FIELD_WORDS = ['ค่าธรรมเนียม', 'จำนวน', 'ยอดเงิน', 'วันที่', 'สแกน', 'ตรวจสอบ', 'fee', 'amount', 'scan', 'verify', 'date'];
+const FOOTER_JUNK = ['สแกน', 'ตรวจสอบ', 'ขอบคุณ', 'แชร์', 'บันทึกรูป', 'scan', 'verify', 'thankyou', 'saveslip', 'share'];
+const KEEP = /[\p{L}\p{N}\p{M}]/u;
+const EDGE_JUNK = /^[^\p{L}\p{N}\p{M}]+|[^\p{L}\p{N}\p{M}]+$/gu;
+
+/** เลขอ้างอิงรายการ: ตัวอักษรกับตัวเลขติดกันยาว ๆ และมีตัวเลขอย่างน้อยหนึ่งตัว (กันคำอังกฤษยาว ๆ ที่เป็น note) */
+const looksLikeRef = (line: string) => /^(?=.*\d)[A-Za-z0-9]{10,}$/.test(line.replace(/[\s:]/g, ''));
+
+function isKnownField(line: string): boolean {
+  const c = compact(line);
+  if (REF_LABELS.some((k) => c.includes(k)) || KNOWN_FIELD_WORDS.some((k) => c.includes(k))) return true;
+  if (looksLikeRef(line) || amountsIn(line).length > 0) return true;
+  return extractDate([line]) !== null;
+}
+
+/**
+ * สลิปบางแบบ (เช่น MAKE by KBank) มีช่อง note เป็นกล่องเปล่า ๆ ไม่มีป้ายกำกับ มักอยู่ท้ายสลิปหลังเลขที่รายการ
+ * จึงเดาว่า note คือข้อความที่อยู่ "หลังบรรทัดที่รู้จักบรรทัดสุดท้าย" (ยอด ค่าธรรมเนียม เลขที่รายการ วันที่ ฯลฯ)
+ * ผลที่ได้ต้องให้ผู้ใช้ตรวจเสมอ (UI ขึ้นป้าย "เดาจากตำแหน่ง")
+ */
+function guessNote(lines: string[]): string {
+  let last = -1;
+  lines.forEach((l, i) => {
+    if (isKnownField(l)) last = i;
+  });
+  if (last < 0) return '';
+  const parts: string[] = [];
+  for (const raw of lines.slice(last + 1)) {
+    const line = raw.replace(EDGE_JUNK, '').trim(); // ตัดสัญลักษณ์ขยะที่ขอบ เช่นไอคอนกระดาษบินที่ถูกอ่านเป็นตัวอักษร
+    if (!line || !KEEP.test(line.replace(/[\p{M}]/gu, ''))) continue;
+    const c = compact(line);
+    if (FOOTER_JUNK.some((k) => c.includes(k))) continue;
+    parts.push(line);
+    if (parts.length >= 3) break;
+  }
+  return parts.join(' ').slice(0, 200);
 }
 
 export function detectBank(text: string): string | null {
@@ -234,10 +305,13 @@ export function parseSlipText(text: string, now = new Date()): ParsedSlip {
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter(Boolean);
+  const labeled = extractLabeledNote(lines);
+  const note = labeled.found ? labeled.value : guessNote(lines);
   return {
     amount: extractAmount(lines),
     date: extractDate(lines, now),
-    note: extractNote(lines),
+    note,
+    noteGuessed: !labeled.found && note !== '',
     bank: detectBank(cleaned)
   };
 }
