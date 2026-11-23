@@ -1,6 +1,6 @@
 # แผนย้ายฐานข้อมูล: Firebase → Cloudflare D1 + Workers
 
-> สถานะ: **Phase 1 (backend) และ Phase 2 (client) เสร็จแล้ว** — ดูหัวข้อ 12 และ 13 · Phase 3 ทดสอบรวมในเครื่องผ่านแล้ว (ยังไม่ได้ทดสอบกับ Cloudflare/Firebase จริง) · **Phase 4 (deploy): เขียน workflow แล้ว กำลังรัน deploy ครั้งแรก**
+> สถานะ: **Phase 1 (backend) และ Phase 2 (client) เสร็จแล้ว** — ดูหัวข้อ 12 และ 13 · Phase 3 ทดสอบรวมในเครื่องผ่านแล้ว (ยังไม่ได้ทดสอบกับ Cloudflare/Firebase จริง) · **Phase 4 (deploy): deploy ครั้งแรกสำเร็จแล้ว** (https://slip-budget.merlinmeow.workers.dev) — เหลือเพิ่ม Authorized domain ใน Firebase และทดสอบบนอุปกรณ์จริง
 > ตัดสินใจแล้ว: ใช้ **auth ทาง A** (Firebase Authentication เฉพาะส่วนล็อกอิน) และคงระบบล็อกอินเดิมไว้
 > เขียนไว้ให้ session ถัดไปหยิบไปทำต่อได้ทันที โดยไม่ต้องย้อนอ่านบทสนทนาเดิม
 
@@ -322,7 +322,8 @@ CREATE UNIQUE INDEX ux_tx_slip ON transactions (user_id, slip_ref) WHERE slip_re
 **Phase 4 — Deploy**
 - [x] GitHub Actions: `npm ci` → `npm test` → `npm run build` → หา/สร้าง D1 ผ่าน Cloudflare API (แทน `wrangler d1 create` เพื่อให้ไม่ต้องรันคำสั่งเอง และผูก id ลง `wrangler.jsonc` ตอน deploy) → `wrangler d1 migrations apply --remote` → `wrangler deploy` → smoke test (`/` ตอบ 200, `/api/me` ไม่มี token ตอบ 401)
 - [x] อัปเดต README (ตั้งค่า Cloudflare แทน GitHub Pages)
-- [ ] deploy ครั้งแรกสำเร็จ · เพิ่ม `slip-budget.merlinmeow.workers.dev` ใน Firebase Authorized domains · ทดสอบล็อกอินและซิงก์บนอุปกรณ์จริง
+- [x] deploy ครั้งแรกสำเร็จ (Actions run #1, ทุกขั้นผ่านรวม smoke test: `/` → 200, `/api/me` ไม่มี token → 401)
+- [ ] เพิ่ม `slip-budget.merlinmeow.workers.dev` ใน Firebase Authorized domains · ทดสอบล็อกอิน ซิงก์ และออฟไลน์บนอุปกรณ์จริง (ตรวจ token ด้วย JWKS ของ Google จริงยังไม่เคยลอง)
 
 ---
 

@@ -2,7 +2,7 @@
 
 เว็บแอพ (PWA) บันทึกรายรับรายจ่าย ติดตั้งลงมือถือได้ **ซิงก์ข้อมูลทุกเครื่อง** และ **ใช้งานตอนไม่มีอินเทอร์เน็ตได้**
 
-> สถานะ: ย้ายฐานข้อมูลจาก Firestore ไป **Cloudflare D1 + Workers** แล้ว (Phase 1–3 ทดสอบกับ Auth Emulator + `wrangler dev` ในเครื่องแล้ว) · Phase 4: workflow deploy พร้อม ดูผลการ deploy ครั้งแรกที่แท็บ Actions · ดูแผนและสถานะที่ [`docs/PLAN-cloudflare-d1.md`](docs/PLAN-cloudflare-d1.md)
+> สถานะ: ย้ายฐานข้อมูลจาก Firestore ไป **Cloudflare D1 + Workers** แล้ว (Phase 1–3 ทดสอบกับ Auth Emulator + `wrangler dev` ในเครื่องแล้ว) · deploy ขึ้น Cloudflare แล้ว: https://slip-budget.merlinmeow.workers.dev · ดูแผนและสถานะที่ [`docs/PLAN-cloudflare-d1.md`](docs/PLAN-cloudflare-d1.md)
 
 ## ฟีเจอร์
 
